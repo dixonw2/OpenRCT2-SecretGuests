@@ -6,8 +6,21 @@ interface SecretCharacter {
 const WINDOW_CLASSIFICATION = "secret-character-spawner-extended";
 const BLACKLIST_STORAGE_KEY = "SecretCharacterSpawnerExtended.blacklist";
 const SPAWN_CHANCE_STORAGE_KEY = "SecretCharacterSpawnerExtended.spawnChance";
+const SPAWN_COUNT_PER_NAME_STORAGE_KEY =
+  "SecretCharacterSpawnerExtended.spawnCountPerName";
+const SPAWN_COUNT_TOTAL_STORAGE_KEY =
+  "SecretCharacterSpawnerExtended.spawnCountTotal";
 
-function openSecretCharacterSpawnerWindow(secretCharacters: SecretCharacter[]) {
+function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
+  let spawnChance = getSpawnChance();
+  let spawnCountPerName = getSpawnCountPerName();
+  let spawnCountTotal = getSpawnCountTotal();
+  let selectedWhitelistIndex = -1;
+  let selectedBlacklistIndex = -1;
+
+  let blacklist = getBlacklist();
+  let whitelist = getWhitelist(blacklist);
+
   function getBlacklist(): SecretCharacter[] {
     const blacklistedNames = context.sharedStorage.get<string[]>(
       BLACKLIST_STORAGE_KEY,
@@ -34,8 +47,6 @@ function openSecretCharacterSpawnerWindow(secretCharacters: SecretCharacter[]) {
     );
   }
 
-  let spawnChance = getSpawnChance();
-
   function getSpawnChance(): number {
     return context.sharedStorage.get<number>(SPAWN_CHANCE_STORAGE_KEY, 0.5);
   }
@@ -44,8 +55,33 @@ function openSecretCharacterSpawnerWindow(secretCharacters: SecretCharacter[]) {
     context.sharedStorage.set(SPAWN_CHANCE_STORAGE_KEY, spawnChance);
   }
 
-  function toListItems(characters: SecretCharacter[]): string[][] {
-    return characters.map((character) => [character.name]);
+  function getSpawnCountPerName(): number {
+    return context.sharedStorage.get<number>(
+      SPAWN_COUNT_PER_NAME_STORAGE_KEY,
+      1,
+    );
+  }
+
+  function saveSpawnCountPerName(): void {
+    context.sharedStorage.set(
+      SPAWN_COUNT_PER_NAME_STORAGE_KEY,
+      spawnCountPerName,
+    );
+  }
+
+  function getSpawnCountTotal(): number {
+    return context.sharedStorage.get<number>(
+      SPAWN_COUNT_TOTAL_STORAGE_KEY,
+      secretCharacters.length,
+    );
+  }
+
+  function saveSpawnCountTotal(): void {
+    context.sharedStorage.set(SPAWN_COUNT_TOTAL_STORAGE_KEY, spawnCountTotal);
+  }
+
+  function toListItems(characters: SecretCharacter[]): string[] {
+    return characters.map((character) => character.name);
   }
 
   function nextSelectIndex(index: number, listLength: number): number {
@@ -60,228 +96,30 @@ function openSecretCharacterSpawnerWindow(secretCharacters: SecretCharacter[]) {
     return index;
   }
 
-  let blacklist = getBlacklist();
-  let whitelist = getWhitelist(blacklist);
-
-  let selectedWhitelistIndex = -1;
-  let selectedBlacklistIndex = -1;
-
-  const windowOpen = ui.getWindow(WINDOW_CLASSIFICATION);
-  if (windowOpen !== null && windowOpen !== undefined) {
-    windowOpen.bringToFront();
-    return;
-  }
-
-  const window = ui.openWindow({
-    classification: WINDOW_CLASSIFICATION,
-    title: "Secret Character Spawner - Extended",
-    width: 420,
-    height: 320,
-    widgets: [
-      // labels blacklist above list
-      {
-        type: "label",
-        x: 220,
-        y: 18,
-        width: 190,
-        height: 12,
-        text: "Blacklisted",
-      },
-      {
-        type: "listview",
-        name: "whitelist",
-        x: 10,
-        y: 35,
-        width: 190,
-        height: 175,
-        scrollbars: "vertical",
-        isStriped: true,
-        showColumnHeaders: false,
-        canSelect: true,
-        columns: [{ header: "Name", width: 180 }],
-        items: toListItems(whitelist),
-        onClick: (index) => {
-          selectedWhitelistIndex = index;
-          selectedBlacklistIndex = -1;
-          setDescription(whitelist[index]);
-
-          // clear blacklist selected to make selected name clearer
-          const blacklistWidget = getListWidget("blacklist");
-          blacklistWidget.selectedCell = null;
-          toggleForceSpawnButtonEnabled();
-        },
-      },
-      {
-        type: "listview",
-        name: "blacklist",
-        x: 220,
-        y: 35,
-        width: 190,
-        height: 175,
-        scrollbars: "vertical",
-        isStriped: true,
-        //CHANGE TO FALSE
-        showColumnHeaders: false,
-        canSelect: true,
-        columns: [{ header: "Name", width: 180 }],
-        items: toListItems(blacklist),
-        onClick: (index) => {
-          selectedBlacklistIndex = index;
-          selectedWhitelistIndex = -1;
-          setDescription(blacklist[index]);
-
-          // clear whitelist selected to make selected name clearer
-          const whitelistWidget = getListWidget("whitelist");
-          whitelistWidget.selectedCell = null;
-          toggleForceSpawnButtonEnabled();
-        },
-      },
-      {
-        type: "button",
-        name: "blacklist-button",
-        x: 50,
-        y: 220,
-        width: 110,
-        height: 20,
-        text: "Blacklist >",
-        onClick: () => {
-          if (
-            selectedWhitelistIndex < 0 ||
-            selectedWhitelistIndex >= whitelist.length
-          ) {
-            return;
-          }
-
-          const character = whitelist[selectedWhitelistIndex];
-          const nextWhitelistIndex = selectedWhitelistIndex;
-
-          saveBlacklist(blacklist.concat([character]));
-          refreshLists("whitelist", nextWhitelistIndex);
-          toggleForceSpawnButtonEnabled();
-        },
-      },
-      {
-        type: "button",
-        name: "whitelist-button",
-        x: 260,
-        y: 220,
-        width: 110,
-        height: 20,
-        text: "< Allow",
-        onClick: () => {
-          if (
-            selectedBlacklistIndex < 0 ||
-            selectedBlacklistIndex >= blacklist.length
-          ) {
-            return;
-          }
-
-          const character = blacklist[selectedBlacklistIndex];
-          const nextBlacklistIndex = selectedBlacklistIndex;
-          const newBlacklist = blacklist.filter(
-            (blacklistedCharacter) =>
-              blacklistedCharacter.name !== character.name,
-          );
-
-          saveBlacklist(newBlacklist);
-          refreshLists("blacklist", nextBlacklistIndex);
-          toggleForceSpawnButtonEnabled();
-        },
-      },
-      {
-        type: "label",
-        name: "character-description-label",
-        x: 10,
-        y: 245,
-        width: 400,
-        height: 12,
-        // empty initially
-        text: "",
-      },
-      {
-        type: "label",
-        name: "spawn-chance-label",
-        x: 10,
-        y: 260,
-        width: 80,
-        height: 12,
-        // empty initially
-        text: "Spawn chance: ",
-      },
-      {
-        type: "spinner",
-        name: "spawn-chance-spinner",
-        x: 95,
-        y: 260,
-        width: 68,
-        height: 12,
-        text: `${spawnChance}%`,
-        onDecrement: () => {
-          spawnChance = Math.max(0, formatChanceNumber(spawnChance - 0.1));
-          saveSpawnChance();
-          updateSpawnChanceSpinner();
-        },
-        onIncrement: () => {
-          spawnChance = Math.min(100, formatChanceNumber(spawnChance + 0.1));
-          saveSpawnChance();
-          updateSpawnChanceSpinner();
-        },
-        onClick: () => {
-          ui.showTextInput({
-            title: "Set Spawn Chance",
-            description: "New spawn chance:",
-            initialValue: spawnChance.toString(),
-            maxLength: 4,
-            callback: (input) => {
-              const newSpawnChance = Number(input);
-
-              if (isNaN(newSpawnChance)) {
-                return;
-              }
-
-              spawnChance = Math.max(
-                0,
-                Math.min(100, formatChanceNumber(newSpawnChance)),
-              );
-              saveSpawnChance();
-              updateSpawnChanceSpinner();
-            },
-          });
-        },
-      },
-      {
-        type: "button",
-        name: "force-spawn-button",
-        x: 155,
-        y: 280,
-        width: 110,
-        height: 20,
-        text: "Force Spawn",
-        // nothing selected initially; disable
-        isDisabled: true,
-        onClick: () => spawnSelectedCharacter(),
-      },
-    ],
-  });
-
+  // change to do Set logic etc so that it doesn't overwrite other guest names?
   function spawnCharacter(character: SecretCharacter): void {
-    const guests = map.getAllEntities("guest");
-    
-  }
+    // get guests that aren't named already
+    const guests = map
+      .getAllEntities("guest")
+      .filter((c) => c.name !== character.name);
 
-  function spawnSelectedCharacter(): void {
-    const guests = map.getAllEntities("guest");
-    let randGuest = guests[Math.floor(Math.random() * guests.length)];
-    const selectedCharacter = getSelectedCharacter();
-
-    if (selectedCharacter === null || selectedCharacter === undefined) {
+    if (guests.length === 0) {
       return;
     }
 
-    context.executeAction("guestsetname", {
-      peep: randGuest.id,
-      name: selectedCharacter.name,
-    });
+    const randGuest = guests[Math.floor(Math.random() * guests.length)];
+
+    context.executeAction(
+      "guestsetname",
+      {
+        peep: randGuest.id,
+        name: character.name,
+      },
+      () => {
+        // update spawn count for selected character
+        setDescription(character);
+      },
+    );
   }
 
   function formatChanceNumber(n: number): number {
@@ -291,6 +129,20 @@ function openSecretCharacterSpawnerWindow(secretCharacters: SecretCharacter[]) {
   function updateSpawnChanceSpinner(): void {
     const spinner = window.findWidget<SpinnerWidget>("spawn-chance-spinner");
     spinner.text = `${spawnChance}%`;
+  }
+
+  function updateSpawnCountPerNameSpinner(): void {
+    const spinner = window.findWidget<SpinnerWidget>(
+      "spawn-count-name-spinner",
+    );
+    spinner.text = spawnCountPerName.toString();
+  }
+
+  function updateSpawnCountTotalSpinner(): void {
+    const spinner = window.findWidget<SpinnerWidget>(
+      "spawn-count-total-spinner",
+    );
+    spinner.text = spawnCountTotal.toString();
   }
 
   function toggleForceSpawnButtonEnabled(): void {
@@ -321,7 +173,11 @@ function openSecretCharacterSpawnerWindow(secretCharacters: SecretCharacter[]) {
       return;
     }
 
-    descriptionLabel.text = `${character.name}: ${character.description}`;
+    const curCharCount = map
+      .getAllEntities("guest")
+      .filter((c) => c.name === character.name).length;
+
+    descriptionLabel.text = `${character.name}: ${character.description} (Current: ${curCharCount})`;
   }
 
   function refreshLists(
@@ -376,6 +232,322 @@ function openSecretCharacterSpawnerWindow(secretCharacters: SecretCharacter[]) {
   ): ListViewWidget {
     return window.findWidget<ListViewWidget>(widgetName);
   }
+
+  function getWidgets(): WidgetDesc[] {
+    return [
+      // whitelist
+      {
+        type: "listview",
+        name: "whitelist",
+        x: 10,
+        y: 35,
+        width: 190,
+        height: 175,
+        scrollbars: "vertical",
+        isStriped: true,
+        showColumnHeaders: false,
+        canSelect: true,
+        columns: [{ header: "Name", width: 180 }],
+        items: toListItems(whitelist),
+        onClick: (index) => {
+          selectedWhitelistIndex = index;
+          selectedBlacklistIndex = -1;
+          setDescription(whitelist[index]);
+
+          // clear blacklist selected to make selected name clearer
+          const blacklistWidget = getListWidget("blacklist");
+          blacklistWidget.selectedCell = null;
+          toggleForceSpawnButtonEnabled();
+        },
+      },
+      // labels blacklist above list
+      {
+        type: "label",
+        x: 220,
+        y: 18,
+        width: 190,
+        height: 12,
+        text: "Blacklisted",
+      },
+      // blacklist
+      {
+        type: "listview",
+        name: "blacklist",
+        x: 220,
+        y: 35,
+        width: 190,
+        height: 175,
+        scrollbars: "vertical",
+        isStriped: true,
+        showColumnHeaders: false,
+        canSelect: true,
+        columns: [{ header: "Name", width: 180 }],
+        items: toListItems(blacklist),
+        onClick: (index) => {
+          selectedBlacklistIndex = index;
+          selectedWhitelistIndex = -1;
+          setDescription(blacklist[index]);
+
+          // clear whitelist selected to make selected name clearer
+          const whitelistWidget = getListWidget("whitelist");
+          whitelistWidget.selectedCell = null;
+          toggleForceSpawnButtonEnabled();
+        },
+      },
+      // selected character description
+      {
+        type: "label",
+        name: "character-description-label",
+        x: 10,
+        y: 215,
+        width: 400,
+        height: 12,
+        text: "",
+      },
+      // move to blacklist button
+      {
+        type: "button",
+        name: "blacklist-button",
+        x: 50,
+        y: 232,
+        width: 110,
+        height: 20,
+        text: "Blacklist >",
+        onClick: () => {
+          if (
+            selectedWhitelistIndex < 0 ||
+            selectedWhitelistIndex >= whitelist.length
+          ) {
+            return;
+          }
+
+          const character = whitelist[selectedWhitelistIndex];
+          const nextWhitelistIndex = selectedWhitelistIndex;
+
+          saveBlacklist(blacklist.concat([character]));
+          refreshLists("whitelist", nextWhitelistIndex);
+          toggleForceSpawnButtonEnabled();
+        },
+      },
+      // move to whitelist button
+      {
+        type: "button",
+        name: "whitelist-button",
+        x: 260,
+        y: 232,
+        width: 110,
+        height: 20,
+        text: "< Allow",
+        onClick: () => {
+          if (
+            selectedBlacklistIndex < 0 ||
+            selectedBlacklistIndex >= blacklist.length
+          ) {
+            return;
+          }
+
+          const character = blacklist[selectedBlacklistIndex];
+          const nextBlacklistIndex = selectedBlacklistIndex;
+          const newBlacklist = blacklist.filter(
+            (blacklistedCharacter) =>
+              blacklistedCharacter.name !== character.name,
+          );
+
+          saveBlacklist(newBlacklist);
+          refreshLists("blacklist", nextBlacklistIndex);
+          toggleForceSpawnButtonEnabled();
+        },
+      },
+      // spawn chance label
+      {
+        type: "label",
+        name: "spawn-chance-label",
+        x: 10,
+        y: 260,
+        width: 100,
+        height: 12,
+        text: "Chance:",
+      },
+      // spawn chance box
+      {
+        type: "spinner",
+        name: "spawn-chance-spinner",
+        x: 110,
+        y: 260,
+        width: 68,
+        height: 12,
+        text: `${spawnChance}%`,
+        onDecrement: () => {
+          spawnChance = Math.max(0, formatChanceNumber(spawnChance - 0.1));
+          saveSpawnChance();
+          updateSpawnChanceSpinner();
+        },
+        onIncrement: () => {
+          spawnChance = Math.min(100, formatChanceNumber(spawnChance + 0.1));
+          saveSpawnChance();
+          updateSpawnChanceSpinner();
+        },
+        onClick: () => {
+          ui.showTextInput({
+            title: "Set Spawn Chance",
+            description: "New spawn chance:",
+            initialValue: spawnChance.toString(),
+            maxLength: 4,
+            callback: (input) => {
+              const newSpawnChance = Number(input);
+
+              if (isNaN(newSpawnChance)) {
+                return;
+              }
+
+              spawnChance = Math.max(
+                0,
+                Math.min(100, formatChanceNumber(newSpawnChance)),
+              );
+              saveSpawnChance();
+              updateSpawnChanceSpinner();
+            },
+          });
+        },
+      },
+      // spawn count per name label
+      {
+        type: "label",
+        name: "spawn-count-name-label",
+        x: 10,
+        y: 275,
+        width: 100,
+        height: 12,
+        text: "Max spawn/name:",
+      },
+      // spawn count per name box
+      {
+        type: "spinner",
+        name: "spawn-count-name-spinner",
+        x: 110,
+        y: 275,
+        width: 68,
+        height: 12,
+        text: spawnCountPerName.toString(),
+        onDecrement: () => {
+          spawnCountPerName = Math.max(0, spawnCountPerName - 1);
+          saveSpawnCountPerName();
+          updateSpawnCountPerNameSpinner();
+        },
+        onIncrement: () => {
+          spawnCountPerName = Math.min(999, spawnCountPerName + 1);
+          saveSpawnCountPerName();
+          updateSpawnCountPerNameSpinner();
+        },
+        onClick: () => {
+          ui.showTextInput({
+            title: "Set Spawn Count",
+            description: "Set max spawn count per name:",
+            initialValue: spawnCountPerName.toString(),
+            maxLength: 3,
+            callback: (input) => {
+              const newSpawnCount = Number(input);
+
+              if (isNaN(newSpawnCount)) {
+                return;
+              }
+
+              spawnCountPerName = Math.max(
+                0,
+                Math.min(999, Math.floor(newSpawnCount)),
+              );
+              saveSpawnCountPerName();
+              updateSpawnCountPerNameSpinner();
+            },
+          });
+        },
+      },
+      // spawn count total label
+      {
+        type: "label",
+        name: "spawn-count-total-label",
+        x: 10,
+        y: 290,
+        width: 100,
+        height: 12,
+        text: "Max total spawn:",
+      },
+      // spawn count total box
+      {
+        type: "spinner",
+        name: "spawn-count-total-spinner",
+        x: 110,
+        y: 290,
+        width: 68,
+        height: 12,
+        text: spawnCountTotal.toString(),
+        onDecrement: () => {
+          spawnCountTotal = Math.max(0, spawnCountTotal - 1);
+          saveSpawnCountTotal();
+          updateSpawnCountTotalSpinner();
+        },
+        onIncrement: () => {
+          spawnCountTotal = Math.min(999, spawnCountTotal + 1);
+          saveSpawnCountTotal();
+          updateSpawnCountTotalSpinner();
+        },
+        onClick: () => {
+          ui.showTextInput({
+            title: "Set Spawn Count",
+            description: "Set total max spawn count:",
+            initialValue: spawnCountTotal.toString(),
+            maxLength: 3,
+            callback: (input) => {
+              const newSpawnCount = Number(input);
+
+              if (isNaN(newSpawnCount)) {
+                return;
+              }
+
+              spawnCountTotal = Math.max(
+                0,
+                Math.min(999, Math.floor(newSpawnCount)),
+              );
+              saveSpawnCountTotal();
+              updateSpawnCountTotalSpinner();
+            },
+          });
+        },
+      },
+      // force spawn button
+      {
+        type: "button",
+        name: "force-spawn-button",
+        x: 260,
+        y: 271,
+        width: 110,
+        height: 20,
+        text: "Force Spawn",
+        // nothing selected initially; disable
+        isDisabled: true,
+        onClick: () => {
+          const selectedCharacter = getSelectedCharacter();
+          if (selectedCharacter !== null) {
+            spawnCharacter(selectedCharacter);
+          }
+        },
+      },
+    ];
+  }
+
+  const windowOpen = ui.getWindow(WINDOW_CLASSIFICATION);
+  if (windowOpen !== null && windowOpen !== undefined) {
+    windowOpen.bringToFront();
+    return;
+  }
+
+  const window = ui.openWindow({
+    classification: WINDOW_CLASSIFICATION,
+    title: "Secret Character Spawner - Extended",
+    width: 420,
+    height: 320,
+    widgets: getWidgets(),
+  });
 }
 
 export function startup() {
@@ -450,11 +622,11 @@ export function startup() {
     },
     {
       name: "Emma Garrell",
-      description: "Gifts guests/self purple shirts",
+      description: "Gifts guests and self purple shirts",
     },
     {
       name: "Joanne Barton",
-      description: "Gifts guests/self pizza",
+      description: "Gifts guests and self pizza",
     },
     {
       name: "Nancy Stillwagon",
@@ -480,13 +652,9 @@ export function startup() {
     },
   ];
 
-  if (!context.sharedStorage.has(BLACKLIST_STORAGE_KEY)) {
-    context.sharedStorage.set<string[]>(BLACKLIST_STORAGE_KEY, []);
-  }
-
   if (typeof ui !== "undefined") {
     ui.registerMenuItem("Secret Character Spawner - Extended", () =>
-      openSecretCharacterSpawnerWindow(secretCharacters),
+      openSecretCharactersWindow(secretCharacters),
     );
   }
 }
