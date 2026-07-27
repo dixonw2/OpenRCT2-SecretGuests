@@ -13,9 +13,9 @@ import {
 } from "./storage";
 import { getCurrentSecretCount, spawnGuest } from "./spawning";
 
-export const WINDOW_CLASSIFICATION = "secret-guest-spawner-extended";
+export const WINDOW_CLASSIFICATION = "secret-guests";
 const CONFIRM_RESET_WINDOW_CLASSIFICATION =
-  "secret-guest-spawner-reset-confirm";
+  "secret-guests-reset-settings-confirm";
 
 const WHITELIST_WIDGET_NAME = "whitelist";
 const BLACKLIST_WIDGET_NAME = "blacklist";
@@ -116,7 +116,7 @@ export function openSecretGuestsWindow(): void {
 
   const window = ui.openWindow({
     classification: WINDOW_CLASSIFICATION,
-    title: "Secret Guest Spawner - Extended",
+    title: "Secret Guests",
     width: 420,
     height: 320,
     widgets: getWidgets(),

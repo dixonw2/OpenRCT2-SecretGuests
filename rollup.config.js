@@ -9,14 +9,13 @@ const options = {
   /**
    * Change the file name of the output file here.
    */
-  filename: "SecretGuests - Dev.js",
+  filename: "SecretGuests.js",
 
   /**
    * Determines in what build mode the plugin should be build. The default here takes
    * from the environment (ex. CLI arguments) with "development" as fallback.
    */
-  //build: process.env.BUILD || "development",
-  build: "development",
+  build: process.env.BUILD || "development",
 };
 
 /**
