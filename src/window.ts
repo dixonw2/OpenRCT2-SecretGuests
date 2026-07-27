@@ -28,6 +28,7 @@ const SPAWN_COUNT_TOTAL_LABEL_WIDGET_NAME = "spawn-count-total-label";
 const SPAWN_COUNT_TOTAL_SPINNER_WIDGET_NAME = "spawn-count-total-spinner";
 const FORCE_SPAWN_BUTTON_WIDGET_NAME = "force-spawn-button";
 const RESET_SETTINGS_BUTTON_WIDGET_NAME = "reset-settings-button";
+const BACKGROUND_UI_REFRESH_TICKS = 40;
 
 let displayedGuestName: string | null = null;
 
@@ -110,6 +111,8 @@ export function openSecretGuestsWindow(): void {
   }
 
   let guestGenerationSubscription: IDisposable | null = null;
+  let backgroundRefreshSubscription: IDisposable | null = null;
+  let backgroundRefreshTicks = 0;
 
   const window = ui.openWindow({
     classification: WINDOW_CLASSIFICATION,
@@ -122,11 +125,27 @@ export function openSecretGuestsWindow(): void {
         guestGenerationSubscription.dispose();
         guestGenerationSubscription = null;
       }
+
+      if (backgroundRefreshSubscription !== null) {
+        backgroundRefreshSubscription.dispose();
+        backgroundRefreshSubscription = null;
+      }
     },
   });
 
   guestGenerationSubscription = context.subscribe("guest.generation", () => {
-    toggleForceSpawnButtonEnabled();
+    refreshUiFromGameState();
+  });
+
+  backgroundRefreshSubscription = context.subscribe("interval.tick", () => {
+    backgroundRefreshTicks++;
+
+    if (backgroundRefreshTicks < BACKGROUND_UI_REFRESH_TICKS) {
+      return;
+    }
+
+    backgroundRefreshTicks = 0;
+    refreshUiFromGameState();
   });
 
   function updateSpawnChanceSpinner(): void {
@@ -167,6 +186,19 @@ export function openSecretGuestsWindow(): void {
       .every((guest) => guest.name === selected.name);
 
     button.isDisabled = !hasFreeGuest;
+  }
+
+  function refreshUiFromGameState(): void {
+    const selectedGuest = getSelectedGuest();
+
+    if (selectedGuest !== null) {
+      setDescription(
+        selectedGuest,
+        getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME),
+      );
+    }
+
+    toggleForceSpawnButtonEnabled();
   }
 
   function getSelectedGuest(): SecretGuest | null {
@@ -337,7 +369,7 @@ export function openSecretGuestsWindow(): void {
 
           const blacklistWidget = getListWidget(BLACKLIST_WIDGET_NAME);
           blacklistWidget.selectedCell = null;
-          toggleForceSpawnButtonEnabled();
+          refreshUiFromGameState();
         },
       },
       // blacklist label
@@ -373,7 +405,7 @@ export function openSecretGuestsWindow(): void {
 
           const whitelistWidget = getListWidget(WHITELIST_WIDGET_NAME);
           whitelistWidget.selectedCell = null;
-          toggleForceSpawnButtonEnabled();
+          refreshUiFromGameState();
         },
       },
       // guest description label
@@ -408,7 +440,7 @@ export function openSecretGuestsWindow(): void {
 
           saveBlacklistNames(blacklist.concat([guest]));
           refreshLists("whitelist", nextWhitelistIndex);
-          toggleForceSpawnButtonEnabled();
+          refreshUiFromGameState();
         },
       },
       // move to whitelist button
@@ -436,7 +468,7 @@ export function openSecretGuestsWindow(): void {
 
           saveBlacklistNames(newBlacklist);
           refreshLists("blacklist", nextBlacklistIndex);
-          toggleForceSpawnButtonEnabled();
+          refreshUiFromGameState();
         },
       },
       // spawn chance label
@@ -614,12 +646,8 @@ export function openSecretGuestsWindow(): void {
         onClick: () => {
           const selectedGuest = getSelectedGuest();
           if (selectedGuest !== null) {
-            spawnGuest(selectedGuest, (guest) => {
-              setDescription(
-                guest,
-                getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME),
-              );
-              toggleForceSpawnButtonEnabled();
+            spawnGuest(selectedGuest, () => {
+              refreshUiFromGameState();
             });
           }
         },
