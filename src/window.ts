@@ -149,8 +149,19 @@ export function openSecretCharactersWindow(): void {
     const button = window.findWidget<ButtonWidget>(
       FORCE_SPAWN_BUTTON_WIDGET_NAME,
     );
-    button.isDisabled =
-      selectedWhitelistIndex === -1 && selectedBlacklistIndex === -1;
+
+    const selected = getSelectedCharacter();
+
+    if (selected === null) {
+      button.isDisabled = true;
+      return;
+    }
+
+    const hasFreeGuest = !map
+      .getAllEntities("guest")
+      .every((guest) => guest.name === selected.name);
+
+    button.isDisabled = !hasFreeGuest;
   }
 
   function getSelectedCharacter(): SecretCharacter | null {

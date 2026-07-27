@@ -5,6 +5,12 @@ import {
   getSpawnCountPerName,
   getSpawnCountTotal,
 } from "./settings";
+const SET_CHARACTER_FLAGS_ACTION = "secretcharacterspawner_setflags";
+
+interface SetCharacterFlagsArgs {
+  guestId: number;
+  flags: PeepFlags[];
+}
 
 export function getCurrentSecretCount(name: string): number {
   return map.getAllEntities("guest").filter((guest) => guest.name === name)
@@ -52,9 +58,6 @@ export function spawnCharacter(
   const guests = map
     .getAllEntities("guest")
     .filter((guest) => !isGuestSecret(guest.name));
-  //   const guests = map
-  //     .getAllEntities("guest")
-  //     .filter((guest) => guest.name !== character.name);
 
   if (guests.length === 0) {
     return;
@@ -62,13 +65,26 @@ export function spawnCharacter(
 
   const randGuest = guests[Math.floor(Math.random() * guests.length)];
 
+  if (randGuest.id === null) {
+    return;
+  }
+
+  park.postMessage({
+    type: "peep",
+    text: `${randGuest.name} was renamed to ${character.name}`,
+    subject: randGuest.id,
+  });
+
+  const guestId = randGuest.id;
   context.executeAction(
     "guestsetname",
     {
-      peep: randGuest.id,
+      peep: guestId,
       name: character.name,
     },
     () => {
+      applyCharacterFlags(guestId, character);
+
       if (onSpawn !== undefined) {
         onSpawn(character);
       }
@@ -81,6 +97,42 @@ function isGuestSecret(name: string): boolean {
   return !SECRET_CHARACTERS.every((c) => c.name !== name);
 }
 
+function applyCharacterFlags(
+  guestId: number,
+  character: SecretCharacter,
+): void {
+  if (character.flags === undefined || character.flags.length === 0) {
+    return;
+  }
+
+  context.executeAction(SET_CHARACTER_FLAGS_ACTION, {
+    guestId,
+    flags: character.flags,
+  });
+}
+
+export function registerSecretCharacterActions(): void {
+  context.registerAction<SetCharacterFlagsArgs>(
+    SET_CHARACTER_FLAGS_ACTION,
+    () => ({}),
+    (event) => {
+      const guest = map.getEntity(event.args.guestId);
+
+      if (guest === null || guest.type !== "guest") {
+        return {};
+      }
+
+      const peep = guest as Guest;
+
+      for (let i = 0; i < event.args.flags.length; i++) {
+        peep.setFlag(event.args.flags[i], true);
+      }
+
+      return {};
+    },
+  );
+}
+
 export function startSecretCharacterInterval(
   onSpawned: (character: SecretCharacter) => void,
 ): void {
@@ -90,6 +142,7 @@ export function startSecretCharacterInterval(
     if (
       guest === null ||
       guest === undefined ||
+      guest.id === null ||
       Math.random() * 100 >= getSpawnChance()
     ) {
       return;
@@ -101,7 +154,11 @@ export function startSecretCharacterInterval(
       return;
     }
 
-    park.postMessage(`${guest.name} set to ${character.name}`);
+    park.postMessage({
+      type: "peep",
+      text: `${guest.name} was renamed to ${character.name}`,
+      subject: guest.id,
+    });
 
     context.executeAction(
       "guestsetname",
@@ -110,6 +167,7 @@ export function startSecretCharacterInterval(
         name: character.name,
       },
       () => {
+        applyCharacterFlags(e.id, character);
         onSpawned(character);
       },
     );

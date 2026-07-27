@@ -1,10 +1,15 @@
-import { startSecretCharacterInterval } from "./spawning";
+import {
+  registerSecretCharacterActions,
+  startSecretCharacterInterval,
+} from "./spawning";
 import {
   openSecretCharactersWindow,
   updateOpenWindowDescriptionIfDisplayed,
 } from "./window";
 
 export function startup(): void {
+  registerSecretCharacterActions();
+
   startSecretCharacterInterval((character) => {
     updateOpenWindowDescriptionIfDisplayed(character);
   });

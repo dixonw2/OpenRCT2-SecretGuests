@@ -1,6 +1,7 @@
 export interface SecretCharacter {
   name: string;
   description: string;
+  flags?: PeepFlags[];
 }
 
 export const SECRET_CHARACTERS: SecretCharacter[] = [
@@ -102,6 +103,11 @@ export const SECRET_CHARACTERS: SecretCharacter[] = [
   {
     name: "David Ellis",
     description: "Thinks \u201C...and here we are on <ride>!\u201D (on ride)",
+  },
+  {
+    name: "Test",
+    description: "Gifts guests and self purple shirts",
+    flags: ["purple"],
   },
 ];
 
