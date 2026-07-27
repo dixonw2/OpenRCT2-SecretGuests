@@ -1,4 +1,5 @@
-import { startup } from "./startup.blacklist-example";
+//import { startup } from "./startup";
+import { startup } from "./startup.with-interval-example";
 
 registerPlugin({
   name: "Secret Character Spawner - Extended",

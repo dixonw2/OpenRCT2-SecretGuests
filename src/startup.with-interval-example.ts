@@ -11,7 +11,277 @@ const SPAWN_COUNT_PER_NAME_STORAGE_KEY =
 const SPAWN_COUNT_TOTAL_STORAGE_KEY =
   "SecretCharacterSpawnerExtended.spawnCountTotal";
 
-function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
+const SECRET_CHARACTERS: SecretCharacter[] = [
+  {
+    name: "Mr Bean",
+    description: "Drives very slow",
+  },
+  {
+    name: "Chris Sawyer",
+    description: "Drives faster than normal; Photographer",
+  },
+  {
+    name: "Jacques Villeneuve",
+    description: "Drives much faster than normal",
+  },
+  {
+    name: "Michael Schumacher",
+    description: "Drives insanely fast",
+  },
+  {
+    name: "Damon Hill",
+    description: "Drives at warp speed",
+  },
+  {
+    name: "Simon Foster",
+    description: "Painter",
+  },
+  {
+    name: "Katie Smith",
+    description: "Frequently jumps",
+  },
+  {
+    name: "Katie Brayshaw",
+    description: "Frequently waves",
+  },
+  {
+    name: "Katie Rodger",
+    description: "Leaves the park",
+  },
+  {
+    name: "Lisa Stirling",
+    description: "Frequently litters",
+  },
+  {
+    name: "Eilidh Bell",
+    description: "Frequently vandalizes",
+  },
+  {
+    name: "Felicity Anderson",
+    description: "Causes other guests to vomit (she stinky)",
+  },
+  {
+    name: "Frances McGowan",
+    description: "Frequently needs to use the bathroom",
+  },
+  {
+    name: "Katherine McGowan",
+    description: "Frequently needs to eat",
+  },
+  {
+    name: "Carol Young",
+    description: "Happiness frequently decreases",
+  },
+  {
+    name: "Mia Sheridan",
+    description: "Nausea frequently increases",
+  },
+  {
+    name: "Melanie Warn",
+    description: "Happiness/Energy maximized; Nausea minimized",
+  },
+  {
+    name: "Emma Garrell",
+    description: "Gifts guests and self purple shirts",
+  },
+  {
+    name: "Joanne Barton",
+    description: "Gifts guests and self pizza",
+  },
+  {
+    name: "Nancy Stillwagon",
+    description: "Gifts guests ice cream",
+  },
+  {
+    // \u201C explicitly uses a left double quotation mark, \u201D uses a right
+    // Using " instead uses solely a right
+    name: "Corina Massoura",
+    description: "Thinks \u201CIt's too crowded here\u201D",
+  },
+  {
+    name: "Donald MacRae",
+    description: "Thinks \u201CI'm lost!\u201D",
+  },
+  {
+    name: "John Wardley",
+    description: "Thinks \u201CWow!\u201D (on ride)",
+  },
+  {
+    name: "David Ellis",
+    description: "Thinks \u201C...and here we are on <ride>!\u201D (on ride)",
+  },
+];
+
+const SPAWN_CHANCE_DEFAULT = 0.5;
+const SPAWN_COUNT_PER_NAME_DEFAULT = 1;
+const SPAWN_COUNT_TOTAL_DEFAULT = SECRET_CHARACTERS.length;
+
+const SPAWN_COUNT_PER_NAME_MAX = 999;
+const SPAWN_COUNT_TOTAL_MAX = 999;
+
+const TICKS_PER_CHECK = 40;
+
+let displayedCharacterName: string | null = null;
+
+// change this to default to a default constant? Maybe with blacklist of negative characters?
+function getBlacklistNames(): string[] {
+  return context.sharedStorage.get<string[]>(BLACKLIST_STORAGE_KEY, []);
+}
+
+function getSpawnChance(): number {
+  return context.sharedStorage.get<number>(
+    SPAWN_CHANCE_STORAGE_KEY,
+    SPAWN_CHANCE_DEFAULT,
+  );
+}
+
+function getSpawnCountPerName(): number {
+  return context.sharedStorage.get<number>(
+    SPAWN_COUNT_PER_NAME_STORAGE_KEY,
+    SPAWN_COUNT_PER_NAME_DEFAULT,
+  );
+}
+
+function getSpawnCountTotal(): number {
+  return context.sharedStorage.get<number>(
+    SPAWN_COUNT_TOTAL_STORAGE_KEY,
+    SPAWN_COUNT_TOTAL_DEFAULT,
+  );
+}
+
+function getCurrentSecretCount(name: string): number {
+  return map.getAllEntities("guest").filter((guest) => guest.name === name)
+    .length;
+}
+
+function getTotalSecretCount(): number {
+  return map
+    .getAllEntities("guest")
+    .filter((guest) =>
+      SECRET_CHARACTERS.some((character) => character.name === guest.name),
+    ).length;
+}
+
+function getEligibleCharacters(): SecretCharacter[] {
+  const blacklistedNames = getBlacklistNames();
+  const maxPerName = getSpawnCountPerName();
+  const maxTotal = getSpawnCountTotal();
+
+  if (getTotalSecretCount() >= maxTotal) {
+    return [];
+  }
+
+  return SECRET_CHARACTERS.filter(
+    (c) =>
+      blacklistedNames.indexOf(c.name) === -1 &&
+      getCurrentSecretCount(c.name) < maxPerName,
+  );
+}
+
+function getRandomCharacter(characters: SecretCharacter[]): SecretCharacter | null {
+  if (characters.length === 0) {
+    return null;
+  }
+
+  return characters[Math.floor(Math.random() * characters.length)];
+}
+
+function setDescription(
+  character: SecretCharacter | null,
+  labelWidget: LabelWidget,
+): void {
+  if (character === null) {
+    displayedCharacterName = null;
+    labelWidget.text = "";
+    return;
+  }
+
+  displayedCharacterName = character.name;
+
+  const curCharCount = map
+    .getAllEntities("guest")
+    .filter((c) => c.name === character.name).length;
+
+  labelWidget.text = `${character.name}: ${character.description} (Current: ${curCharCount})`;
+}
+
+function updateOpenWindowDescriptionIfDisplayed(
+  character: SecretCharacter,
+): void {
+  if (displayedCharacterName !== character.name) {
+    return;
+  }
+
+  if (typeof ui === "undefined") {
+    return;
+  }
+
+  const openWindow = ui.getWindow(WINDOW_CLASSIFICATION);
+
+  if (openWindow === null || openWindow === undefined) {
+    return;
+  }
+
+  const descriptionLabel = openWindow.findWidget<LabelWidget>(
+    "character-description-label",
+  );
+
+  setDescription(character, descriptionLabel);
+}
+
+function startSecretCharacterInterval(): void {
+  const checkedGuestIds: number[] = [];
+  let initialScan = true;
+  let tickCounter = 0;
+
+  context.subscribe("interval.tick", () => {
+    tickCounter++;
+    if (tickCounter < TICKS_PER_CHECK) {
+      return;
+    }
+    tickCounter = 0;
+
+    const guests = map.getAllEntities("guest");
+
+    for (let i = 0; i < guests.length; i++) {
+      const guest = guests[i];
+
+      if (guest.id === null || checkedGuestIds.indexOf(guest.id) !== -1) {
+        continue;
+      }
+
+      checkedGuestIds.push(guest.id);
+
+      // first pass, puts all existing guests into the checked list
+      if (initialScan || Math.random() * 100 >= getSpawnChance()) {
+        continue;
+      }
+
+      const character = getRandomCharacter(getEligibleCharacters());
+
+      if (character === null) {
+        continue;
+      }
+
+      park.postMessage(`${guest.name} set to ${character.name}`);
+
+      context.executeAction(
+        "guestsetname",
+        {
+          peep: guest.id,
+          name: character.name,
+        },
+        () => {
+          updateOpenWindowDescriptionIfDisplayed(character);
+        },
+      );
+    }
+
+    initialScan = false;
+  });
+}
+
+function openSecretCharactersWindow() {
   let spawnChance = getSpawnChance();
   let spawnCountPerName = getSpawnCountPerName();
   let spawnCountTotal = getSpawnCountTotal();
@@ -22,13 +292,8 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
   let whitelist = getWhitelist(blacklist);
 
   function getBlacklist(): SecretCharacter[] {
-    const blacklistedNames = context.sharedStorage.get<string[]>(
-      BLACKLIST_STORAGE_KEY,
-      [],
-    );
-
-    return secretCharacters.filter(
-      (character) => blacklistedNames.indexOf(character.name) !== -1,
+    return SECRET_CHARACTERS.filter(
+      (character) => getBlacklistNames().indexOf(character.name) !== -1,
     );
   }
 
@@ -40,39 +305,21 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
   }
 
   function getWhitelist(blacklist: SecretCharacter[]): SecretCharacter[] {
-    return secretCharacters.filter((character) =>
+    return SECRET_CHARACTERS.filter((character) =>
       blacklist.every(
         (blacklistedCharacter) => blacklistedCharacter.name !== character.name,
       ),
     );
   }
 
-  function getSpawnChance(): number {
-    return context.sharedStorage.get<number>(SPAWN_CHANCE_STORAGE_KEY, 0.5);
-  }
-
   function saveSpawnChance(): void {
     context.sharedStorage.set(SPAWN_CHANCE_STORAGE_KEY, spawnChance);
-  }
-
-  function getSpawnCountPerName(): number {
-    return context.sharedStorage.get<number>(
-      SPAWN_COUNT_PER_NAME_STORAGE_KEY,
-      1,
-    );
   }
 
   function saveSpawnCountPerName(): void {
     context.sharedStorage.set(
       SPAWN_COUNT_PER_NAME_STORAGE_KEY,
       spawnCountPerName,
-    );
-  }
-
-  function getSpawnCountTotal(): number {
-    return context.sharedStorage.get<number>(
-      SPAWN_COUNT_TOTAL_STORAGE_KEY,
-      secretCharacters.length,
     );
   }
 
@@ -108,16 +355,19 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
     }
 
     const randGuest = guests[Math.floor(Math.random() * guests.length)];
-
     context.executeAction(
       "guestsetname",
       {
         peep: randGuest.id,
         name: character.name,
       },
+      // turn into a passed in function so that I can check if it's null so that I can use this function in interval checks to spawn?
       () => {
         // update spawn count for selected character
-        setDescription(character);
+        setDescription(
+          character,
+          getLabelWidget("character-description-label"),
+        );
       },
     );
   }
@@ -163,23 +413,6 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
     return null;
   }
 
-  function setDescription(character: SecretCharacter | null): void {
-    const descriptionLabel = window.findWidget<LabelWidget>(
-      "character-description-label",
-    );
-
-    if (character === null) {
-      descriptionLabel.text = "";
-      return;
-    }
-
-    const curCharCount = map
-      .getAllEntities("guest")
-      .filter((c) => c.name === character.name).length;
-
-    descriptionLabel.text = `${character.name}: ${character.description} (Current: ${curCharCount})`;
-  }
-
   function refreshLists(
     listToReselect: "whitelist" | "blacklist",
     previousIndex: number,
@@ -206,10 +439,13 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
           row: selectedWhitelistIndex,
           column: 0,
         };
-        setDescription(whitelist[selectedWhitelistIndex]);
+        setDescription(
+          whitelist[selectedWhitelistIndex],
+          getLabelWidget("character-description-label"),
+        );
       } else {
         // reset description if no item is selected
-        setDescription(null);
+        setDescription(null, getLabelWidget("character-description-label"));
       }
     } else {
       selectedBlacklistIndex = nextSelectIndex(previousIndex, blacklist.length);
@@ -219,10 +455,13 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
           row: selectedBlacklistIndex,
           column: 0,
         };
-        setDescription(blacklist[selectedBlacklistIndex]);
+        setDescription(
+          blacklist[selectedBlacklistIndex],
+          getLabelWidget("character-description-label"),
+        );
       } else {
         // reset description if no item is selected
-        setDescription(null);
+        setDescription(null, getLabelWidget("character-description-label"));
       }
     }
   }
@@ -231,6 +470,10 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
     widgetName: "whitelist" | "blacklist",
   ): ListViewWidget {
     return window.findWidget<ListViewWidget>(widgetName);
+  }
+
+  function getLabelWidget(widgetName: "character-description-label") {
+    return window.findWidget<LabelWidget>(widgetName);
   }
 
   function getWidgets(): WidgetDesc[] {
@@ -252,7 +495,10 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
         onClick: (index) => {
           selectedWhitelistIndex = index;
           selectedBlacklistIndex = -1;
-          setDescription(whitelist[index]);
+          setDescription(
+            whitelist[index],
+            getLabelWidget("character-description-label"),
+          );
 
           // clear blacklist selected to make selected name clearer
           const blacklistWidget = getListWidget("blacklist");
@@ -286,7 +532,10 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
         onClick: (index) => {
           selectedBlacklistIndex = index;
           selectedWhitelistIndex = -1;
-          setDescription(blacklist[index]);
+          setDescription(
+            blacklist[index],
+            getLabelWidget("character-description-label"),
+          );
 
           // clear whitelist selected to make selected name clearer
           const whitelistWidget = getListWidget("whitelist");
@@ -435,7 +684,10 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
           updateSpawnCountPerNameSpinner();
         },
         onIncrement: () => {
-          spawnCountPerName = Math.min(999, spawnCountPerName + 1);
+          spawnCountPerName = Math.min(
+            SPAWN_COUNT_PER_NAME_MAX,
+            spawnCountPerName + 1,
+          );
           saveSpawnCountPerName();
           updateSpawnCountPerNameSpinner();
         },
@@ -454,7 +706,7 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
 
               spawnCountPerName = Math.max(
                 0,
-                Math.min(999, Math.floor(newSpawnCount)),
+                Math.min(SPAWN_COUNT_PER_NAME_MAX, Math.floor(newSpawnCount)),
               );
               saveSpawnCountPerName();
               updateSpawnCountPerNameSpinner();
@@ -487,7 +739,10 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
           updateSpawnCountTotalSpinner();
         },
         onIncrement: () => {
-          spawnCountTotal = Math.min(999, spawnCountTotal + 1);
+          spawnCountTotal = Math.min(
+            SPAWN_COUNT_TOTAL_MAX,
+            spawnCountTotal + 1,
+          );
           saveSpawnCountTotal();
           updateSpawnCountTotalSpinner();
         },
@@ -506,7 +761,7 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
 
               spawnCountTotal = Math.max(
                 0,
-                Math.min(999, Math.floor(newSpawnCount)),
+                Math.min(SPAWN_COUNT_TOTAL_MAX, Math.floor(newSpawnCount)),
               );
               saveSpawnCountTotal();
               updateSpawnCountTotalSpinner();
@@ -551,110 +806,11 @@ function openSecretCharactersWindow(secretCharacters: SecretCharacter[]) {
 }
 
 export function startup() {
-  const secretCharacters: SecretCharacter[] = [
-    {
-      name: "Mr Bean",
-      description: "Drives very slow",
-    },
-    {
-      name: "Chris Sawyer",
-      description: "Drives faster than normal; Photographer",
-    },
-    {
-      name: "Jacques Villeneuve",
-      description: "Drives much faster than normal",
-    },
-    {
-      name: "Michael Schumacher",
-      description: "Drives insanely fast",
-    },
-    {
-      name: "Damon Hill",
-      description: "Drives at warp speed",
-    },
-    {
-      name: "Simon Foster",
-      description: "Painter",
-    },
-    {
-      name: "Katie Smith",
-      description: "Frequently jumps",
-    },
-    {
-      name: "Katie Brayshaw",
-      description: "Frequently waves",
-    },
-    {
-      name: "Katie Rodger",
-      description: "Leaves the park",
-    },
-    {
-      name: "Lisa Stirling",
-      description: "Frequently litters",
-    },
-    {
-      name: "Eilidh Bell",
-      description: "Frequently vandalizes",
-    },
-    {
-      name: "Felicity Anderson",
-      description: "Causes other guests to vomit (she stinky)",
-    },
-    {
-      name: "Frances McGowan",
-      description: "Frequently needs to use the bathroom",
-    },
-    {
-      name: "Katherine McGowan",
-      description: "Frequently needs to eat",
-    },
-    {
-      name: "Carol Young",
-      description: "Happiness frequently decreases",
-    },
-    {
-      name: "Mia Sheridan",
-      description: "Nausea frequently increases",
-    },
-    {
-      name: "Melanie Warn",
-      description: "Happiness/Energy maximized; Nausea minimized",
-    },
-    {
-      name: "Emma Garrell",
-      description: "Gifts guests and self purple shirts",
-    },
-    {
-      name: "Joanne Barton",
-      description: "Gifts guests and self pizza",
-    },
-    {
-      name: "Nancy Stillwagon",
-      description: "Gifts guests ice cream",
-    },
-    {
-      // \u201C explicitly uses a left double quotation mark, \u201D uses a right
-      // Using " instead uses solely a right
-      name: "Corina Massoura",
-      description: "Thinks \u201CIt's too crowded here\u201D",
-    },
-    {
-      name: "Donald MacRae",
-      description: "Thinks \u201CI'm lost!\u201D",
-    },
-    {
-      name: "John Wardley",
-      description: "Thinks \u201CWow!\u201D (on ride)",
-    },
-    {
-      name: "David Ellis",
-      description: "Thinks \u201C...and here we are on <ride>!\u201D (on ride)",
-    },
-  ];
+  startSecretCharacterInterval();
 
   if (typeof ui !== "undefined") {
     ui.registerMenuItem("Secret Character Spawner - Extended", () =>
-      openSecretCharactersWindow(secretCharacters),
+      openSecretCharactersWindow(),
     );
   }
 }
