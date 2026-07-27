@@ -51,13 +51,14 @@ export function getRandomCharacter(
   return characters[Math.floor(Math.random() * characters.length)];
 }
 
+// CAN overwrite existing spawned characters with different names
 export function spawnCharacter(
   character: SecretCharacter,
   onSpawn?: (character: SecretCharacter) => void,
 ): void {
   const guests = map
     .getAllEntities("guest")
-    .filter((guest) => !isGuestSecret(guest.name));
+    .filter((g) => g.name !== character.name);
 
   if (guests.length === 0) {
     return;

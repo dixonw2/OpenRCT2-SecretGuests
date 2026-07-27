@@ -116,12 +116,24 @@ export function openSecretCharactersWindow(): void {
     return;
   }
 
+  let guestGenerationSubscription: IDisposable | null = null;
+
   const window = ui.openWindow({
     classification: WINDOW_CLASSIFICATION,
     title: "Secret Character Spawner - Extended",
     width: 420,
     height: 320,
     widgets: getWidgets(),
+    onClose: () => {
+      if (guestGenerationSubscription !== null) {
+        guestGenerationSubscription.dispose();
+        guestGenerationSubscription = null;
+      }
+    },
+  });
+
+  guestGenerationSubscription = context.subscribe("guest.generation", () => {
+    toggleForceSpawnButtonEnabled();
   });
 
   function updateSpawnChanceSpinner(): void {
@@ -617,6 +629,7 @@ export function openSecretCharactersWindow(): void {
                 character,
                 getLabelWidget(CHARACTER_DESCRIPTION_WIDGET_NAME),
               );
+              toggleForceSpawnButtonEnabled();
             });
           }
         },
