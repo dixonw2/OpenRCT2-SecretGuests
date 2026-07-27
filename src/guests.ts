@@ -1,10 +1,48 @@
-export interface SecretCharacter {
+export interface SecretGuest {
   name: string;
   description: string;
   flags?: PeepFlags[];
 }
 
-export const SECRET_CHARACTERS: SecretCharacter[] = [
+/*
+    Custom guest example (in SECRET_GUESTS):
+    {
+        name: "Test",
+        description: "Splashes everyone with a purple paint balloon",
+        flags: ["purple"],
+    },
+
+    Flags list (untested)
+    "leavingPark"
+    "slowWalk"
+    "tracking"
+    "waving"
+    "hasPaidForParkEntry"
+    "photo"
+    "painting"
+    "wow"
+    "litter"
+    "lost"
+    "hunger"
+    "toilet"
+    "crowded"
+    "happiness"
+    "nausea"
+    "purple"
+    "pizza"
+    "explode"
+    "rideShouldBeMarkedAsFavourite"
+    "parkEntranceChosen"
+    "contagious"
+    "joy"
+    "angry"
+    "iceCream"
+    "hereWeAre"
+    "positionFrozen"
+    "animationFrozen"
+*/
+
+export const SECRET_GUESTS: SecretGuest[] = [
   {
     name: "Mr Bean",
     description: "Drives very slow",
@@ -104,14 +142,9 @@ export const SECRET_CHARACTERS: SecretCharacter[] = [
     name: "David Ellis",
     description: "Thinks \u201C...and here we are on <ride>!\u201D (on ride)",
   },
-  {
-    name: "Test",
-    description: "Gifts guests and self purple shirts",
-    flags: ["purple"],
-  },
 ];
 
-export const BLACKLIST_CHARACTERS_NAMES_DEFAULT: string[] = [
+export const BLACKLIST_GUESTS_NAMES_DEFAULT: string[] = [
   "Katie Rodger",
   "Lisa Stirling",
   "Eilidh Bell",

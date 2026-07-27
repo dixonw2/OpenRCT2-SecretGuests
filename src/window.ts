@@ -1,7 +1,6 @@
-import { SecretCharacter } from "./characters";
+import { SecretGuest } from "./guests";
+import { getBlacklist, getWhitelist } from "./guestLists";
 import {
-  getWhitelist,
-  getBlacklist,
   getSpawnChance,
   getSpawnCountPerName,
   getSpawnCountTotal,
@@ -11,16 +10,16 @@ import {
   saveSpawnCountTotal,
   SPAWN_COUNT_PER_NAME_MAX,
   SPAWN_COUNT_TOTAL_MAX,
-} from "./settings";
-import { getCurrentSecretCount, spawnCharacter } from "./spawning";
+} from "./storage";
+import { getCurrentSecretCount, spawnGuest } from "./spawning";
 
-export const WINDOW_CLASSIFICATION = "secret-character-spawner-extended";
+export const WINDOW_CLASSIFICATION = "secret-guest-spawner-extended";
 const CONFIRM_RESET_WINDOW_CLASSIFICATION =
-  "secret-character-spawner-reset-confirm";
+  "secret-guest-spawner-reset-confirm";
 
 const WHITELIST_WIDGET_NAME = "whitelist";
 const BLACKLIST_WIDGET_NAME = "blacklist";
-const CHARACTER_DESCRIPTION_WIDGET_NAME = "character-description-label";
+const GUEST_DESCRIPTION_WIDGET_NAME = "guest-description-label";
 const SPAWN_CHANCE_LABEL_WIDGET_NAME = "spawn-chance-label";
 const SPAWN_CHANCE_SPINNER_WIDGET_NAME = "spawn-chance-spinner";
 const SPAWN_COUNT_PER_NAME_LABEL_WIDGET_NAME = "spawn-count-per-name-label";
@@ -30,10 +29,10 @@ const SPAWN_COUNT_TOTAL_SPINNER_WIDGET_NAME = "spawn-count-total-spinner";
 const FORCE_SPAWN_BUTTON_WIDGET_NAME = "force-spawn-button";
 const RESET_SETTINGS_BUTTON_WIDGET_NAME = "reset-settings-button";
 
-let displayedCharacterName: string | null = null;
+let displayedGuestName: string | null = null;
 
-function getCharacterNames(characters: SecretCharacter[]): string[] {
-  return characters.map((character) => character.name);
+function getGuestNames(guests: SecretGuest[]): string[] {
+  return guests.map((guest) => guest.name);
 }
 
 function nextSelectIndex(index: number, listLength: number): number {
@@ -53,20 +52,20 @@ function formatChanceNumber(n: number): number {
 }
 
 function setDescription(
-  character: SecretCharacter | null,
+  guest: SecretGuest | null,
   labelWidget: LabelWidget,
 ): void {
-  if (character === null) {
-    displayedCharacterName = null;
+  if (guest === null) {
+    displayedGuestName = null;
     labelWidget.text = "";
     return;
   }
 
-  displayedCharacterName = character.name;
+  displayedGuestName = guest.name;
 
-  const curCharCount = getCurrentSecretCount(character.name);
+  const curCharCount = getCurrentSecretCount(guest.name);
 
-  labelWidget.text = `${character.name}: ${character.description} (Current: ${curCharCount})`;
+  labelWidget.text = `${guest.name}: ${guest.description} (Current: ${curCharCount})`;
 }
 
 function resetSettings(): void {
@@ -76,14 +75,8 @@ function resetSettings(): void {
   saveSpawnCountTotal();
 }
 
-export function updateOpenWindowDescriptionIfDisplayed(
-  character: SecretCharacter,
-): void {
-  if (displayedCharacterName !== character.name) {
-    return;
-  }
-
-  if (typeof ui === "undefined") {
+export function updateOpenWindowDescription(guest: SecretGuest): void {
+  if (displayedGuestName !== guest.name || typeof ui === "undefined") {
     return;
   }
 
@@ -94,13 +87,13 @@ export function updateOpenWindowDescriptionIfDisplayed(
   }
 
   const descriptionLabel = openWindow.findWidget<LabelWidget>(
-    CHARACTER_DESCRIPTION_WIDGET_NAME,
+    GUEST_DESCRIPTION_WIDGET_NAME,
   );
 
-  setDescription(character, descriptionLabel);
+  setDescription(guest, descriptionLabel);
 }
 
-export function openSecretCharactersWindow(): void {
+export function openSecretGuestsWindow(): void {
   let spawnChance = getSpawnChance();
   let spawnCountPerName = getSpawnCountPerName();
   let spawnCountTotal = getSpawnCountTotal();
@@ -120,7 +113,7 @@ export function openSecretCharactersWindow(): void {
 
   const window = ui.openWindow({
     classification: WINDOW_CLASSIFICATION,
-    title: "Secret Character Spawner - Extended",
+    title: "Secret Guest Spawner - Extended",
     width: 420,
     height: 320,
     widgets: getWidgets(),
@@ -162,7 +155,7 @@ export function openSecretCharactersWindow(): void {
       FORCE_SPAWN_BUTTON_WIDGET_NAME,
     );
 
-    const selected = getSelectedCharacter();
+    const selected = getSelectedGuest();
 
     if (selected === null) {
       button.isDisabled = true;
@@ -176,7 +169,7 @@ export function openSecretCharactersWindow(): void {
     button.isDisabled = !hasFreeGuest;
   }
 
-  function getSelectedCharacter(): SecretCharacter | null {
+  function getSelectedGuest(): SecretGuest | null {
     if (selectedWhitelistIndex >= 0) {
       return whitelist[selectedWhitelistIndex] ?? null;
     }
@@ -198,8 +191,8 @@ export function openSecretCharactersWindow(): void {
     const whitelistWidget = getListWidget(WHITELIST_WIDGET_NAME);
     const blacklistWidget = getListWidget(BLACKLIST_WIDGET_NAME);
 
-    whitelistWidget.items = getCharacterNames(whitelist);
-    blacklistWidget.items = getCharacterNames(blacklist);
+    whitelistWidget.items = getGuestNames(whitelist);
+    blacklistWidget.items = getGuestNames(blacklist);
     whitelistWidget.selectedCell = null;
     blacklistWidget.selectedCell = null;
 
@@ -216,10 +209,10 @@ export function openSecretCharactersWindow(): void {
         };
         setDescription(
           whitelist[selectedWhitelistIndex],
-          getLabelWidget(CHARACTER_DESCRIPTION_WIDGET_NAME),
+          getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME),
         );
       } else {
-        setDescription(null, getLabelWidget(CHARACTER_DESCRIPTION_WIDGET_NAME));
+        setDescription(null, getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME));
       }
     } else {
       selectedBlacklistIndex = nextSelectIndex(previousIndex, blacklist.length);
@@ -231,10 +224,10 @@ export function openSecretCharactersWindow(): void {
         };
         setDescription(
           blacklist[selectedBlacklistIndex],
-          getLabelWidget(CHARACTER_DESCRIPTION_WIDGET_NAME),
+          getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME),
         );
       } else {
-        setDescription(null, getLabelWidget(CHARACTER_DESCRIPTION_WIDGET_NAME));
+        setDescription(null, getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME));
       }
     }
   }
@@ -245,9 +238,7 @@ export function openSecretCharactersWindow(): void {
     return window.findWidget<ListViewWidget>(widgetName);
   }
 
-  function getLabelWidget(
-    widgetName: "character-description-label",
-  ): LabelWidget {
+  function getLabelWidget(widgetName: "guest-description-label"): LabelWidget {
     return window.findWidget<LabelWidget>(widgetName);
   }
 
@@ -335,13 +326,13 @@ export function openSecretCharactersWindow(): void {
         showColumnHeaders: false,
         canSelect: true,
         columns: [{ header: "Name", width: 180 }],
-        items: getCharacterNames(whitelist),
+        items: getGuestNames(whitelist),
         onClick: (index) => {
           selectedWhitelistIndex = index;
           selectedBlacklistIndex = -1;
           setDescription(
             whitelist[index],
-            getLabelWidget(CHARACTER_DESCRIPTION_WIDGET_NAME),
+            getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME),
           );
 
           const blacklistWidget = getListWidget(BLACKLIST_WIDGET_NAME);
@@ -371,13 +362,13 @@ export function openSecretCharactersWindow(): void {
         showColumnHeaders: false,
         canSelect: true,
         columns: [{ header: "Name", width: 180 }],
-        items: getCharacterNames(blacklist),
+        items: getGuestNames(blacklist),
         onClick: (index) => {
           selectedBlacklistIndex = index;
           selectedWhitelistIndex = -1;
           setDescription(
             blacklist[index],
-            getLabelWidget(CHARACTER_DESCRIPTION_WIDGET_NAME),
+            getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME),
           );
 
           const whitelistWidget = getListWidget(WHITELIST_WIDGET_NAME);
@@ -385,10 +376,10 @@ export function openSecretCharactersWindow(): void {
           toggleForceSpawnButtonEnabled();
         },
       },
-      // character description label
+      // guest description label
       {
         type: "label",
-        name: CHARACTER_DESCRIPTION_WIDGET_NAME,
+        name: GUEST_DESCRIPTION_WIDGET_NAME,
         x: 10,
         y: 215,
         width: 400,
@@ -412,10 +403,10 @@ export function openSecretCharactersWindow(): void {
             return;
           }
 
-          const character = whitelist[selectedWhitelistIndex];
+          const guest = whitelist[selectedWhitelistIndex];
           const nextWhitelistIndex = selectedWhitelistIndex;
 
-          saveBlacklistNames(blacklist.concat([character]));
+          saveBlacklistNames(blacklist.concat([guest]));
           refreshLists("whitelist", nextWhitelistIndex);
           toggleForceSpawnButtonEnabled();
         },
@@ -437,11 +428,10 @@ export function openSecretCharactersWindow(): void {
             return;
           }
 
-          const character = blacklist[selectedBlacklistIndex];
+          const guest = blacklist[selectedBlacklistIndex];
           const nextBlacklistIndex = selectedBlacklistIndex;
           const newBlacklist = blacklist.filter(
-            (blacklistedCharacter) =>
-              blacklistedCharacter.name !== character.name,
+            (blacklistedGuest) => blacklistedGuest.name !== guest.name,
           );
 
           saveBlacklistNames(newBlacklist);
@@ -622,12 +612,12 @@ export function openSecretCharactersWindow(): void {
         text: "Force Spawn",
         isDisabled: true,
         onClick: () => {
-          const selectedCharacter = getSelectedCharacter();
-          if (selectedCharacter !== null) {
-            spawnCharacter(selectedCharacter, (character) => {
+          const selectedGuest = getSelectedGuest();
+          if (selectedGuest !== null) {
+            spawnGuest(selectedGuest, (guest) => {
               setDescription(
-                character,
-                getLabelWidget(CHARACTER_DESCRIPTION_WIDGET_NAME),
+                guest,
+                getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME),
               );
               toggleForceSpawnButtonEnabled();
             });
@@ -660,8 +650,8 @@ export function openSecretCharactersWindow(): void {
             const whitelistWidget = getListWidget("whitelist");
             const blacklistWidget = getListWidget("blacklist");
 
-            whitelistWidget.items = getCharacterNames(whitelist);
-            blacklistWidget.items = getCharacterNames(blacklist);
+            whitelistWidget.items = getGuestNames(whitelist);
+            blacklistWidget.items = getGuestNames(blacklist);
 
             whitelistWidget.selectedCell = null;
             blacklistWidget.selectedCell = null;
@@ -669,10 +659,7 @@ export function openSecretCharactersWindow(): void {
             selectedWhitelistIndex = -1;
             selectedBlacklistIndex = -1;
 
-            setDescription(
-              null,
-              getLabelWidget(CHARACTER_DESCRIPTION_WIDGET_NAME),
-            );
+            setDescription(null, getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME));
             toggleForceSpawnButtonEnabled();
           });
         },

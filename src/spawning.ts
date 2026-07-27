@@ -1,13 +1,13 @@
-import { SecretCharacter, SECRET_CHARACTERS } from "./characters";
+import { SecretGuest, SECRET_GUESTS } from "./guests";
 import {
   getBlacklistNames,
   getSpawnChance,
   getSpawnCountPerName,
   getSpawnCountTotal,
-} from "./settings";
-const SET_CHARACTER_FLAGS_ACTION = "secretcharacterspawner_setflags";
+} from "./storage";
+const SET_GUEST_FLAGS_ACTION = "secretguests_setflags";
 
-interface SetCharacterFlagsArgs {
+interface SetGuestFlagsArgs {
   guestId: number;
   flags: PeepFlags[];
 }
@@ -20,12 +20,11 @@ export function getCurrentSecretCount(name: string): number {
 export function getTotalSecretCount(): number {
   return map
     .getAllEntities("guest")
-    .filter((guest) =>
-      SECRET_CHARACTERS.some((character) => character.name === guest.name),
-    ).length;
+    .filter((guest) => SECRET_GUESTS.some((sg) => sg.name === guest.name))
+    .length;
 }
 
-export function getEligibleCharacters(): SecretCharacter[] {
+export function getEligibleGuests(): SecretGuest[] {
   const blacklistedNames = getBlacklistNames();
   const maxPerName = getSpawnCountPerName();
   const maxTotal = getSpawnCountTotal();
@@ -34,31 +33,29 @@ export function getEligibleCharacters(): SecretCharacter[] {
     return [];
   }
 
-  return SECRET_CHARACTERS.filter(
-    (character) =>
-      blacklistedNames.indexOf(character.name) === -1 &&
-      getCurrentSecretCount(character.name) < maxPerName,
+  return SECRET_GUESTS.filter(
+    (guest) =>
+      blacklistedNames.indexOf(guest.name) === -1 &&
+      getCurrentSecretCount(guest.name) < maxPerName,
   );
 }
 
-export function getRandomCharacter(
-  characters: SecretCharacter[],
-): SecretCharacter | null {
-  if (characters.length === 0) {
+export function getRandomGuest(guests: SecretGuest[]): SecretGuest | null {
+  if (guests.length === 0) {
     return null;
   }
 
-  return characters[Math.floor(Math.random() * characters.length)];
+  return guests[Math.floor(Math.random() * guests.length)];
 }
 
-// CAN overwrite existing spawned characters with different names
-export function spawnCharacter(
-  character: SecretCharacter,
-  onSpawn?: (character: SecretCharacter) => void,
+// CAN overwrite existing spawned guests with different names
+export function spawnGuest(
+  guest: SecretGuest,
+  onSpawn?: (guest: SecretGuest) => void,
 ): void {
   const guests = map
     .getAllEntities("guest")
-    .filter((g) => g.name !== character.name);
+    .filter((g) => g.name !== guest.name);
 
   if (guests.length === 0) {
     return;
@@ -72,7 +69,7 @@ export function spawnCharacter(
 
   park.postMessage({
     type: "peep",
-    text: `${randGuest.name} was renamed to ${character.name}`,
+    text: `${randGuest.name} was renamed to ${guest.name}`,
     subject: randGuest.id,
   });
 
@@ -81,40 +78,32 @@ export function spawnCharacter(
     "guestsetname",
     {
       peep: guestId,
-      name: character.name,
+      name: guest.name,
     },
     () => {
-      applyCharacterFlags(guestId, character);
+      applyGuestFlags(guestId, guest);
 
       if (onSpawn !== undefined) {
-        onSpawn(character);
+        onSpawn(guest);
       }
     },
   );
 }
 
-// if name is not in SECRET_CHARACTERS, return false
-function isGuestSecret(name: string): boolean {
-  return !SECRET_CHARACTERS.every((c) => c.name !== name);
-}
-
-function applyCharacterFlags(
-  guestId: number,
-  character: SecretCharacter,
-): void {
-  if (character.flags === undefined || character.flags.length === 0) {
+function applyGuestFlags(guestId: number, guest: SecretGuest): void {
+  if (guest.flags === undefined || guest.flags.length === 0) {
     return;
   }
 
-  context.executeAction(SET_CHARACTER_FLAGS_ACTION, {
+  context.executeAction(SET_GUEST_FLAGS_ACTION, {
     guestId,
-    flags: character.flags,
+    flags: guest.flags,
   });
 }
 
-export function registerSecretCharacterActions(): void {
-  context.registerAction<SetCharacterFlagsArgs>(
-    SET_CHARACTER_FLAGS_ACTION,
+export function registerSecretGuestActions(): void {
+  context.registerAction<SetGuestFlagsArgs>(
+    SET_GUEST_FLAGS_ACTION,
     () => ({}),
     (event) => {
       const guest = map.getEntity(event.args.guestId);
@@ -134,8 +123,8 @@ export function registerSecretCharacterActions(): void {
   );
 }
 
-export function startSecretCharacterInterval(
-  onSpawned: (character: SecretCharacter) => void,
+export function startSecretGuestInterval(
+  onSpawned: (guest: SecretGuest) => void,
 ): void {
   context.subscribe("guest.generation", (e) => {
     const guest = map.getEntity(e.id) as Guest;
@@ -149,15 +138,15 @@ export function startSecretCharacterInterval(
       return;
     }
 
-    const character = getRandomCharacter(getEligibleCharacters());
+    const randGuest = getRandomGuest(getEligibleGuests());
 
-    if (character === null) {
+    if (randGuest === null) {
       return;
     }
 
     park.postMessage({
       type: "peep",
-      text: `${guest.name} was renamed to ${character.name}`,
+      text: `${guest.name} was renamed to ${randGuest.name}`,
       subject: guest.id,
     });
 
@@ -165,11 +154,11 @@ export function startSecretCharacterInterval(
       "guestsetname",
       {
         peep: guest.id,
-        name: character.name,
+        name: randGuest.name,
       },
       () => {
-        applyCharacterFlags(e.id, character);
-        onSpawned(character);
+        applyGuestFlags(e.id, randGuest);
+        onSpawned(randGuest);
       },
     );
   });

@@ -1,8 +1,7 @@
-//import { startup } from "./startup";
-import { startup } from "./startup.with-interval-example";
+import { startup } from "./startup";
 
 registerPlugin({
-  name: "Secret Character Spawner - Extended",
+  name: "Secret Guests",
   version: "1.0",
   authors: ["FleetingDream"],
   type: "remote",
