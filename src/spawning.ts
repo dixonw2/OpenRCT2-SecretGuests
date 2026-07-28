@@ -1,4 +1,5 @@
-import { SecretGuest, SECRET_GUESTS } from "./guests";
+import { SecretGuest } from "./guests";
+import { getAllGuests } from "./guestLists";
 import {
   getBlacklistNames,
   getSpawnChance,
@@ -21,7 +22,7 @@ export function getCurrentSecretCount(name: string): number {
 export function getTotalSecretCount(): number {
   return map
     .getAllEntities("guest")
-    .filter((guest) => SECRET_GUESTS.some((sg) => sg.name === guest.name))
+    .filter((guest) => getAllGuests().some((sg) => sg.name === guest.name))
     .length;
 }
 
@@ -34,7 +35,7 @@ export function getEligibleGuests(): SecretGuest[] {
     return [];
   }
 
-  return SECRET_GUESTS.filter(
+  return getAllGuests().filter(
     (guest) =>
       blacklistedNames.indexOf(guest.name) === -1 &&
       getCurrentSecretCount(guest.name) < maxPerName,
@@ -50,7 +51,7 @@ export function getRandomGuest(guests: SecretGuest[]): SecretGuest | null {
 }
 
 // CAN overwrite existing spawned guests with different names
-export function spawnGuest(
+export function forceSpawnGuest(
   guest: SecretGuest,
   onSpawn?: (guest: SecretGuest) => void,
 ): void {
@@ -63,7 +64,6 @@ export function spawnGuest(
   }
 
   const randGuest = guests[Math.floor(Math.random() * guests.length)];
-
   if (randGuest.id === null) {
     return;
   }

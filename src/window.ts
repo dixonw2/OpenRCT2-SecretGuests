@@ -12,8 +12,9 @@ import {
   saveNotifyOnSpawn,
   SPAWN_COUNT_PER_NAME_MAX,
   SPAWN_COUNT_TOTAL_MAX,
+  saveCustomGuests,
 } from "./storage";
-import { getCurrentSecretCount, spawnGuest } from "./spawning";
+import { getCurrentSecretCount, forceSpawnGuest } from "./spawning";
 
 export const WINDOW_CLASSIFICATION = "secret-guests";
 const CONFIRM_RESET_WINDOW_CLASSIFICATION =
@@ -78,6 +79,7 @@ function resetSettings(): void {
   saveSpawnCountPerName();
   saveSpawnCountTotal();
   saveNotifyOnSpawn();
+  saveCustomGuests();
 }
 
 export function updateOpenWindowDescription(guest: SecretGuest): void {
@@ -658,7 +660,7 @@ export function openSecretGuestsWindow(): void {
         onClick: () => {
           const selectedGuest = getSelectedGuest();
           if (selectedGuest !== null) {
-            spawnGuest(selectedGuest, () => {
+            forceSpawnGuest(selectedGuest, () => {
               refreshUiFromGameState();
             });
           }

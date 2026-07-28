@@ -1,16 +1,20 @@
 import { SecretGuest, SECRET_GUESTS } from "./guests";
-import { getBlacklistNames } from "./storage";
+import { getBlacklistNames, getCustomGuests } from "./storage";
 
 export function getBlacklist(): SecretGuest[] {
-  return SECRET_GUESTS.filter(
+  return getAllGuests().filter(
     (guest) => getBlacklistNames().indexOf(guest.name) !== -1,
   );
 }
 
 export function getWhitelist(): SecretGuest[] {
-  return SECRET_GUESTS.filter((guest) =>
+  return getAllGuests().filter((guest) =>
     getBlacklist().every(
       (blacklistedGuest) => blacklistedGuest.name !== guest.name,
     ),
   );
+}
+
+export function getAllGuests(): SecretGuest[] {
+  return SECRET_GUESTS.concat(getCustomGuests());
 }

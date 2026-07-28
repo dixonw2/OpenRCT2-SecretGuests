@@ -152,3 +152,5 @@ export const BLACKLIST_GUESTS_NAMES_DEFAULT: string[] = [
   "Corina Massoura",
   "Donald MacRae",
 ];
+
+export const CUSTOM_GUESTS_DEFAULT: SecretGuest[] = [{name: "FleetingDream", description: "His impressive talent astounds all", flags: ["photo", "painting", "waving"]}];
