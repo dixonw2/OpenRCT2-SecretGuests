@@ -4,6 +4,7 @@ import {
   getSpawnChance,
   getSpawnCountPerName,
   getSpawnCountTotal,
+  getNotifyOnSpawn,
 } from "./storage";
 const SET_GUEST_FLAGS_ACTION = "secretguests_setflags";
 
@@ -67,11 +68,13 @@ export function spawnGuest(
     return;
   }
 
-  park.postMessage({
-    type: "peep",
-    text: `${randGuest.name} was renamed to ${guest.name}`,
-    subject: randGuest.id,
-  });
+  if (getNotifyOnSpawn()) {
+    park.postMessage({
+      type: "peep",
+      text: `${randGuest.name} was renamed to ${guest.name}`,
+      subject: randGuest.id,
+    });
+  }
 
   const guestId = randGuest.id;
   context.executeAction(
@@ -144,11 +147,13 @@ export function startSecretGuestInterval(
       return;
     }
 
-    park.postMessage({
-      type: "peep",
-      text: `${guest.name} was renamed to ${randGuest.name}`,
-      subject: guest.id,
-    });
+    if (getNotifyOnSpawn()) {
+      park.postMessage({
+        type: "peep",
+        text: `${guest.name} was renamed to ${randGuest.name}`,
+        subject: guest.id,
+      });
+    }
 
     context.executeAction(
       "guestsetname",

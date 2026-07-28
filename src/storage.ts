@@ -9,10 +9,13 @@ export const SPAWN_CHANCE_STORAGE_KEY = "SecretGuests.spawnChance";
 export const SPAWN_COUNT_PER_NAME_STORAGE_KEY =
   "SecretGuests.spawnCountPerName";
 export const SPAWN_COUNT_TOTAL_STORAGE_KEY = "SecretGuests.spawnCountTotal";
+export const NOTIFY_ON_SPAWN_STORAGE_KEY = "SecretGuests.notifyOnSpawn";
 
 export const SPAWN_CHANCE_DEFAULT = 0.5;
 export const SPAWN_COUNT_PER_NAME_DEFAULT = 1;
 export const SPAWN_COUNT_TOTAL_DEFAULT = SECRET_GUESTS.length;
+
+export const NOTIFY_ON_SPAWN_DEFAULT = false;
 
 export const SPAWN_COUNT_PER_NAME_MAX = 999;
 export const SPAWN_COUNT_TOTAL_MAX = 999;
@@ -94,4 +97,19 @@ export function saveSpawnCountTotal(spawnCountTotal?: number): void {
   }
 
   context.sharedStorage.set(SPAWN_COUNT_TOTAL_STORAGE_KEY, spawnCountTotal);
+}
+
+export function getNotifyOnSpawn(): boolean {
+  return context.sharedStorage.get<boolean>(
+    NOTIFY_ON_SPAWN_STORAGE_KEY,
+    NOTIFY_ON_SPAWN_DEFAULT,
+  );
+}
+
+export function saveNotifyOnSpawn(notifyOnSpawn?: boolean): void {
+  if (notifyOnSpawn === undefined) {
+    notifyOnSpawn = NOTIFY_ON_SPAWN_DEFAULT;
+  }
+
+  context.sharedStorage.set(NOTIFY_ON_SPAWN_STORAGE_KEY, notifyOnSpawn);
 }
