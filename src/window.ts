@@ -4,10 +4,12 @@ import {
   getSpawnChance,
   getSpawnCountPerName,
   getSpawnCountTotal,
+  getNotifyOnSpawn,
   saveBlacklistNames,
   saveSpawnChance,
   saveSpawnCountPerName,
   saveSpawnCountTotal,
+  saveNotifyOnSpawn,
   SPAWN_COUNT_PER_NAME_MAX,
   SPAWN_COUNT_TOTAL_MAX,
 } from "./storage";
@@ -28,6 +30,7 @@ const SPAWN_COUNT_TOTAL_LABEL_WIDGET_NAME = "spawn-count-total-label";
 const SPAWN_COUNT_TOTAL_SPINNER_WIDGET_NAME = "spawn-count-total-spinner";
 const FORCE_SPAWN_BUTTON_WIDGET_NAME = "force-spawn-button";
 const RESET_SETTINGS_BUTTON_WIDGET_NAME = "reset-settings-button";
+const NOTIFY_ON_SPAWN_CHECKBOX_WIDGET_NAME = "notify-on-spawn-checkbox";
 const BACKGROUND_UI_REFRESH_TICKS = 40;
 
 let displayedGuestName: string | null = null;
@@ -74,6 +77,7 @@ function resetSettings(): void {
   saveSpawnChance();
   saveSpawnCountPerName();
   saveSpawnCountTotal();
+  saveNotifyOnSpawn();
 }
 
 export function updateOpenWindowDescription(guest: SecretGuest): void {
@@ -167,6 +171,14 @@ export function openSecretGuestsWindow(): void {
       SPAWN_COUNT_TOTAL_SPINNER_WIDGET_NAME,
     );
     spinner.text = spawnCountTotal.toString();
+  }
+
+  function updateNotifyOnSpawnCheckbox(): void {
+    const checkbox = window.findWidget<CheckboxWidget>(
+      NOTIFY_ON_SPAWN_CHECKBOX_WIDGET_NAME,
+    );
+
+    checkbox.isChecked = getNotifyOnSpawn();
   }
 
   function toggleForceSpawnButtonEnabled(): void {
@@ -664,6 +676,7 @@ export function openSecretGuestsWindow(): void {
         onClick: () => {
           showResetConfirmation(() => {
             resetSettings();
+
             spawnChance = getSpawnChance();
             spawnCountPerName = getSpawnCountPerName();
             spawnCountTotal = getSpawnCountTotal();
@@ -671,6 +684,7 @@ export function openSecretGuestsWindow(): void {
             blacklist = getBlacklist();
             whitelist = getWhitelist();
 
+            updateNotifyOnSpawnCheckbox();
             updateSpawnChanceSpinner();
             updateSpawnCountPerNameSpinner();
             updateSpawnCountTotalSpinner();
@@ -690,6 +704,20 @@ export function openSecretGuestsWindow(): void {
             setDescription(null, getLabelWidget(GUEST_DESCRIPTION_WIDGET_NAME));
             toggleForceSpawnButtonEnabled();
           });
+        },
+      },
+      // notify of spawn checkbox
+      {
+        type: "checkbox",
+        name: NOTIFY_ON_SPAWN_CHECKBOX_WIDGET_NAME,
+        x: 260,
+        y: 257,
+        width: 130,
+        height: 12,
+        text: "Notify on spawn",
+        isChecked: getNotifyOnSpawn(),
+        onChange: (isChecked) => {
+          saveNotifyOnSpawn(isChecked);
         },
       },
     ];
