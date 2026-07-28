@@ -2,9 +2,8 @@ import {
   SecretGuest,
   BLACKLIST_GUESTS_NAMES_DEFAULT,
   CUSTOM_GUESTS_DEFAULT,
+  SECRET_GUESTS,
 } from "./guests";
-
-import { getAllGuests } from "./guestLists";
 
 export const BLACKLIST_STORAGE_KEY = "SecretGuests.blacklist";
 export const SPAWN_CHANCE_STORAGE_KEY = "SecretGuests.spawnChance";
@@ -16,7 +15,8 @@ export const CUSTOM_GUESTS_STORAGE_KEY = "SecretGuests.customGuests";
 
 export const SPAWN_CHANCE_DEFAULT = 0.5;
 export const SPAWN_COUNT_PER_NAME_DEFAULT = 1;
-export const SPAWN_COUNT_TOTAL_DEFAULT = getAllGuests().length;
+export const SPAWN_COUNT_TOTAL_DEFAULT =
+  SECRET_GUESTS.length + CUSTOM_GUESTS_DEFAULT.length;
 
 export const NOTIFY_ON_SPAWN_DEFAULT = false;
 
@@ -105,7 +105,12 @@ export function getCustomGuests(): SecretGuest[] {
 
 export function saveCustomGuests(
   customGuests: SecretGuest[] = CUSTOM_GUESTS_DEFAULT,
-) {
+): void {
+  // remove any original secret guest names
+  customGuests = customGuests.filter((customGuest) =>
+    SECRET_GUESTS.every((secretGuest) => secretGuest.name !== customGuest.name),
+  );
+
   context.sharedStorage.set<SecretGuest[]>(
     CUSTOM_GUESTS_STORAGE_KEY,
     customGuests,

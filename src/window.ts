@@ -12,9 +12,9 @@ import {
   saveNotifyOnSpawn,
   SPAWN_COUNT_PER_NAME_MAX,
   SPAWN_COUNT_TOTAL_MAX,
-  saveCustomGuests,
 } from "./storage";
 import { getCurrentSecretCount, forceSpawnGuest } from "./spawning";
+import { openCustomGuestsWindow } from "./customGuestsWindow";
 
 export const WINDOW_CLASSIFICATION = "secret-guests";
 const CONFIRM_RESET_WINDOW_CLASSIFICATION =
@@ -79,7 +79,6 @@ function resetSettings(): void {
   saveSpawnCountPerName();
   saveSpawnCountTotal();
   saveNotifyOnSpawn();
-  saveCustomGuests();
 }
 
 export function updateOpenWindowDescription(guest: SecretGuest): void {
@@ -720,6 +719,29 @@ export function openSecretGuestsWindow(): void {
         isChecked: getNotifyOnSpawn(),
         onChange: (isChecked) => {
           saveNotifyOnSpawn(isChecked);
+        },
+      },
+      // add custom guests button
+      {
+        type: "button",
+        name: "custom-guests-button",
+        x: 10,
+        y: 16,
+        width: 110,
+        height: 15,
+        text: "Custom Guests",
+        onClick: () => {
+          openCustomGuestsWindow(() => {
+            blacklist = getBlacklist();
+            whitelist = getWhitelist();
+
+            getListWidget(WHITELIST_WIDGET_NAME).items =
+              getGuestNames(whitelist);
+            getListWidget(BLACKLIST_WIDGET_NAME).items =
+              getGuestNames(blacklist);
+
+            refreshUiFromGameState();
+          });
         },
       },
     ];

@@ -42,6 +42,36 @@ export interface SecretGuest {
     "animationFrozen"
 */
 
+export const GUEST_FLAGS: PeepFlags[] = [
+  "leavingPark",
+  "slowWalk",
+  "tracking",
+  "waving",
+  "hasPaidForParkEntry", // Remove?
+  "photo",
+  "painting",
+  "wow",
+  "litter",
+  "lost",
+  "hunger",
+  "toilet",
+  "crowded", // describe as random thoughts? Without any other plugins, still has random thoughts. Try fresh install no plugins, different versions?
+  "happiness",
+  "nausea",
+  "purple",
+  "pizza",
+  "explode",
+  "rideShouldBeMarkedAsFavourite", // Remove?
+  "parkEntranceChosen", // Remove?
+  "contagious",
+  "joy",
+  "angry",
+  "iceCream",
+  "hereWeAre",
+  "positionFrozen", // Possibly keep?
+  "animationFrozen", // Possibly keep?
+];
+
 export const SECRET_GUESTS: SecretGuest[] = [
   {
     name: "Mr Bean",
@@ -153,4 +183,10 @@ export const BLACKLIST_GUESTS_NAMES_DEFAULT: string[] = [
   "Donald MacRae",
 ];
 
-export const CUSTOM_GUESTS_DEFAULT: SecretGuest[] = [{name: "FleetingDream", description: "His impressive talent astounds all", flags: ["photo", "painting", "waving"]}];
+export const CUSTOM_GUESTS_DEFAULT: SecretGuest[] = [
+  {
+    name: "FleetingDream",
+    description: "His impressive talent astounds all",
+    flags: ["photo", "painting", "waving"],
+  },
+];
