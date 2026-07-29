@@ -8,13 +8,15 @@ export function getBlacklist(): SecretGuest[] {
 }
 
 export function getWhitelist(): SecretGuest[] {
-  return getAllGuests().filter((guest) =>
-    getBlacklist().every(
-      (blacklistedGuest) => blacklistedGuest.name !== guest.name,
-    ),
+  return getAllGuests().filter(
+    (guest) => getBlacklistNames().indexOf(guest.name) === -1,
   );
 }
 
 export function getAllGuests(): SecretGuest[] {
   return SECRET_GUESTS.concat(getCustomGuests());
+}
+
+export function getGuestNames(guests: SecretGuest[]): string[] {
+  return guests.map((guest) => guest.name);
 }

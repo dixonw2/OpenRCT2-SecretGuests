@@ -173,20 +173,3 @@ export const SECRET_GUESTS: SecretGuest[] = [
     description: "Thinks \u201C...and here we are on <ride>!\u201D (on ride)",
   },
 ];
-
-export const BLACKLIST_GUESTS_NAMES_DEFAULT: string[] = [
-  "Katie Rodger",
-  "Lisa Stirling",
-  "Eilidh Bell",
-  "Felicity Anderson",
-  "Corina Massoura",
-  "Donald MacRae",
-];
-
-export const CUSTOM_GUESTS_DEFAULT: SecretGuest[] = [
-  {
-    name: "FleetingDream",
-    description: "His impressive talent astounds all",
-    flags: ["photo", "painting", "waving"],
-  },
-];

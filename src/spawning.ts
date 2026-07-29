@@ -42,12 +42,12 @@ export function getEligibleGuests(): SecretGuest[] {
   );
 }
 
-export function getRandomGuest(guests: SecretGuest[]): SecretGuest | null {
-  if (guests.length === 0) {
+export function getRandomItem<T>(items: T[]): T | null {
+  if (items.length === 0) {
     return null;
   }
 
-  return guests[Math.floor(Math.random() * guests.length)];
+  return items[Math.floor(Math.random() * items.length)];
 }
 
 // CAN overwrite existing spawned guests with different names
@@ -141,7 +141,7 @@ export function startSecretGuestInterval(
       return;
     }
 
-    const randGuest = getRandomGuest(getEligibleGuests());
+    const randGuest = getRandomItem(getEligibleGuests());
 
     if (randGuest === null) {
       return;

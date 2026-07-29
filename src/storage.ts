@@ -1,110 +1,99 @@
-import {
-  SecretGuest,
-  BLACKLIST_GUESTS_NAMES_DEFAULT,
-  CUSTOM_GUESTS_DEFAULT,
-  SECRET_GUESTS,
-} from "./guests";
-
-export const BLACKLIST_STORAGE_KEY = "SecretGuests.blacklist";
-export const SPAWN_CHANCE_STORAGE_KEY = "SecretGuests.spawnChance";
-export const SPAWN_COUNT_PER_NAME_STORAGE_KEY =
-  "SecretGuests.spawnCountPerName";
-export const SPAWN_COUNT_TOTAL_STORAGE_KEY = "SecretGuests.spawnCountTotal";
-export const NOTIFY_ON_SPAWN_STORAGE_KEY = "SecretGuests.notifyOnSpawn";
-export const CUSTOM_GUESTS_STORAGE_KEY = "SecretGuests.customGuests";
-
-export const SPAWN_CHANCE_DEFAULT = 0.5;
-export const SPAWN_COUNT_PER_NAME_DEFAULT = 1;
-export const SPAWN_COUNT_TOTAL_DEFAULT =
-  SECRET_GUESTS.length + CUSTOM_GUESTS_DEFAULT.length;
-
-export const NOTIFY_ON_SPAWN_DEFAULT = false;
-
-export const SPAWN_COUNT_PER_NAME_MAX = 999;
-export const SPAWN_COUNT_TOTAL_MAX = 999;
+import { SecretGuest, SECRET_GUESTS } from "./guests";
+import { STORAGE_KEYS, DEFAULT_VALUES } from "./constants";
 
 export function getBlacklistNames(): string[] {
-  return context.sharedStorage.get<string[]>(
-    BLACKLIST_STORAGE_KEY,
-    BLACKLIST_GUESTS_NAMES_DEFAULT,
-  );
+  return context.sharedStorage.get<string[]>(STORAGE_KEYS.blacklist, [
+    ...DEFAULT_VALUES.blacklistGuestsNames,
+  ]);
 }
 
 export function saveBlacklistNames(
-  blacklist: SecretGuest[] | string[] = BLACKLIST_GUESTS_NAMES_DEFAULT,
+  blacklist: SecretGuest[] | string[] = [
+    ...DEFAULT_VALUES.blacklistGuestsNames,
+  ],
 ): void {
   const blacklistNames =
     blacklist.length === 0 || typeof blacklist[0] === "string"
       ? (blacklist as string[])
       : (blacklist as SecretGuest[]).map((guest) => guest.name);
 
-  context.sharedStorage.set<string[]>(BLACKLIST_STORAGE_KEY, blacklistNames);
+  context.sharedStorage.set<string[]>(STORAGE_KEYS.blacklist, blacklistNames);
 }
 
 export function getSpawnChance(): number {
   return context.sharedStorage.get<number>(
-    SPAWN_CHANCE_STORAGE_KEY,
-    SPAWN_CHANCE_DEFAULT,
+    STORAGE_KEYS.spawnChance,
+    DEFAULT_VALUES.spawnChance,
   );
 }
 
 export function saveSpawnChance(
-  spawnChance: number = SPAWN_CHANCE_DEFAULT,
+  spawnChance: number = DEFAULT_VALUES.spawnChance,
 ): void {
-  context.sharedStorage.set(SPAWN_CHANCE_STORAGE_KEY, spawnChance);
+  context.sharedStorage.set(STORAGE_KEYS.spawnChance, spawnChance);
 }
 
 export function getSpawnCountPerName(): number {
   return context.sharedStorage.get<number>(
-    SPAWN_COUNT_PER_NAME_STORAGE_KEY,
-    SPAWN_COUNT_PER_NAME_DEFAULT,
+    STORAGE_KEYS.spawnCountPerName,
+    DEFAULT_VALUES.spawnCountPerName,
   );
 }
 
 export function saveSpawnCountPerName(
-  spawnCountPerName: number = SPAWN_COUNT_PER_NAME_DEFAULT,
+  spawnCountPerName: number = DEFAULT_VALUES.spawnCountPerName,
 ): void {
-  context.sharedStorage.set(
-    SPAWN_COUNT_PER_NAME_STORAGE_KEY,
-    spawnCountPerName,
-  );
+  context.sharedStorage.set(STORAGE_KEYS.spawnCountPerName, spawnCountPerName);
+}
+
+function getSpawnCountTotalDefault(): number {
+  return SECRET_GUESTS.length + getCustomGuests().length;
 }
 
 export function getSpawnCountTotal(): number {
   return context.sharedStorage.get<number>(
-    SPAWN_COUNT_TOTAL_STORAGE_KEY,
-    SPAWN_COUNT_TOTAL_DEFAULT,
+    STORAGE_KEYS.spawnCountTotal,
+    getSpawnCountTotalDefault(),
   );
 }
 
 export function saveSpawnCountTotal(
-  spawnCountTotal: number = SPAWN_COUNT_TOTAL_DEFAULT,
+  spawnCountTotal: number = getSpawnCountTotalDefault(),
 ): void {
-  context.sharedStorage.set(SPAWN_COUNT_TOTAL_STORAGE_KEY, spawnCountTotal);
+  context.sharedStorage.set(STORAGE_KEYS.spawnCountTotal, spawnCountTotal);
 }
 
 export function getNotifyOnSpawn(): boolean {
   return context.sharedStorage.get<boolean>(
-    NOTIFY_ON_SPAWN_STORAGE_KEY,
-    NOTIFY_ON_SPAWN_DEFAULT,
+    STORAGE_KEYS.notifyOnSpawn,
+    DEFAULT_VALUES.notifyOnSpawn,
   );
 }
 
 export function saveNotifyOnSpawn(
-  notifyOnSpawn: boolean = NOTIFY_ON_SPAWN_DEFAULT,
+  notifyOnSpawn: boolean = DEFAULT_VALUES.notifyOnSpawn,
 ): void {
-  context.sharedStorage.set(NOTIFY_ON_SPAWN_STORAGE_KEY, notifyOnSpawn);
+  context.sharedStorage.set(STORAGE_KEYS.notifyOnSpawn, notifyOnSpawn);
+}
+
+// need to make list mutable for sharedStorage
+function getDefaultCustomGuests(): SecretGuest[] {
+  return DEFAULT_VALUES.customGuests.map((guest) => ({
+    name: guest.name,
+    description: guest.description,
+    flags: [...guest.flags],
+  }));
 }
 
 export function getCustomGuests(): SecretGuest[] {
   return context.sharedStorage.get<SecretGuest[]>(
-    CUSTOM_GUESTS_STORAGE_KEY,
-    CUSTOM_GUESTS_DEFAULT,
+    STORAGE_KEYS.customGuests,
+    getDefaultCustomGuests(),
   );
 }
 
 export function saveCustomGuests(
-  customGuests: SecretGuest[] = CUSTOM_GUESTS_DEFAULT,
+  customGuests: SecretGuest[] = getDefaultCustomGuests(),
 ): void {
   // remove any original secret guest names
   customGuests = customGuests.filter((customGuest) =>
@@ -112,7 +101,7 @@ export function saveCustomGuests(
   );
 
   context.sharedStorage.set<SecretGuest[]>(
-    CUSTOM_GUESTS_STORAGE_KEY,
+    STORAGE_KEYS.customGuests,
     customGuests,
   );
 }
