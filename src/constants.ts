@@ -18,6 +18,9 @@ export const WIDGET_NAMES = {
   button: {
     forceSpawn: "force-spawn-button",
     resetSettings: "reset-settings-button",
+    blacklistName: "blacklist-guest-button",
+    whitelistName: "whitelist-guest-button",
+    openCustomGuestsManager: "open-custom-guests-manager-button",
   },
   checkbox: {
     notifyOnSpawn: "notify-on-spawn-checkbox",

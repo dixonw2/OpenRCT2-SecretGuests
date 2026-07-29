@@ -21,43 +21,68 @@ function isTextWidget(widget: Widget): widget is TextWidget {
   );
 }
 
-// update to something like this?
-// can then pass any properties I want updated?
 export function updateWidgetProperties(
   window: Window,
   widgetName: string,
-  text?: string,
-  visible?: boolean,
+  {
+    isDisabled,
+    isVisible,
+    isChecked,
+    items,
+    selectedCell,
+    text,
+  }: {
+    isDisabled?: boolean;
+    isVisible?: boolean;
+    isChecked?: boolean;
+    items?: ListViewItem[];
+    selectedCell?: RowColumn | null;
+    text?: string;
+  },
 ): void {
   const widget = window.findWidget<Widget>(widgetName);
 
-  if (!isTextWidget(widget)) {
-    return;
+  if (isDisabled !== undefined) {
+    widget.isDisabled = isDisabled;
   }
 
-  if (visible !== null && visible !== undefined) {
-    widget.isVisible = visible;
+  if (isVisible !== undefined) {
+    widget.isVisible = isVisible;
   }
 
-  if (text !== null && text !== undefined) {
+  if (isChecked !== undefined && widget.type === "checkbox") {
+    widget.isChecked = isChecked;
+  }
+
+  if (items !== undefined && widget.type === "listview") {
+    widget.items = items;
+  }
+
+  if (selectedCell !== undefined && widget.type === "listview") {
+    widget.selectedCell = selectedCell;
+  }
+
+  if (text !== undefined && isTextWidget(widget)) {
     widget.text = text;
   }
 }
 
-export function updateWidgetText(
-  window: Window,
-  widgetName: string,
-  text: string,
-): void {
-  const widget = window.findWidget<Widget>(widgetName);
-
-  if (!isTextWidget(widget)) {
-    return;
-  }
-
-  widget.text = text;
-}
-
 export function getMainWindow(): Window | null {
   return ui.getWindow(WINDOW_CLASSIFICATIONS.mainMenuWindow);
+}
+
+export function getResetSettingsConfirmationWindow(): Window | null {
+  return ui.getWindow(WINDOW_CLASSIFICATIONS.confirmResetSettingsWindow);
+}
+
+export function nextSelectIndexForList(index: number, list: object[]): number {
+  if (list.length === 0) {
+    return -1;
+  }
+
+  if (index >= list.length) {
+    return list.length - 1;
+  }
+
+  return index;
 }

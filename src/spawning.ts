@@ -42,6 +42,7 @@ export function getEligibleGuests(): SecretGuest[] {
   );
 }
 
+// possibly move to different helper function file
 export function getRandomItem<T>(items: T[]): T | null {
   if (items.length === 0) {
     return null;

@@ -1,10 +1,16 @@
 import { SecretGuest } from "./guests";
-import { getBlacklist, getWhitelist, getGuestNames } from "./guestLists";
+import {
+  getBlacklist,
+  getWhitelist,
+  getGuestNames,
+  getAllGuests,
+} from "./guestLists";
 import {
   getSpawnChance,
   getSpawnCountPerName,
   getSpawnCountTotal,
   getNotifyOnSpawn,
+  getBlacklistNames,
   saveBlacklistNames,
   saveSpawnChance,
   saveSpawnCountPerName,
@@ -13,7 +19,12 @@ import {
 } from "./storage";
 import { getCurrentSecretCount, forceSpawnGuest } from "./spawning";
 import { openCustomGuestsWindow } from "./customGuestsWindow";
-import { getMainWindow, updateWidgetText } from "./windowUtilities";
+import {
+  getMainWindow,
+  getResetSettingsConfirmationWindow,
+  updateWidgetProperties,
+  nextSelectIndexForList,
+} from "./windowUtilities";
 import {
   WINDOW_CLASSIFICATIONS,
   WIDGET_NAMES,
@@ -23,18 +34,6 @@ import {
 const BACKGROUND_UI_REFRESH_TICKS = 40;
 
 let displayedGuestName: string | null = null;
-
-function nextSelectIndex(index: number, listLength: number): number {
-  if (listLength === 0) {
-    return -1;
-  }
-
-  if (index >= listLength) {
-    return listLength - 1;
-  }
-
-  return index;
-}
 
 function formatChanceNumber(n: number): number {
   return Number(n.toFixed(1));
@@ -67,30 +66,30 @@ export function updateOpenWindowDescription(guest: SecretGuest): void {
 
   const openWindow = getMainWindow();
 
-  if (openWindow === null || openWindow === undefined) {
+  if (openWindow === null) {
     return;
   }
 
-  updateWidgetText(
-    openWindow,
-    WIDGET_NAMES.label.guestDescription,
-    getSelectedDescription(guest),
-  );
+  updateWidgetProperties(openWindow, WIDGET_NAMES.label.guestDescription, {
+    text: getSelectedDescription(guest),
+  });
 }
 
 export function openSecretGuestsWindow(): void {
   let spawnChance = getSpawnChance();
   let spawnCountPerName = getSpawnCountPerName();
   let spawnCountTotal = getSpawnCountTotal();
+  let notifyOnSpawn = getNotifyOnSpawn();
   let selectedWhitelistIndex = -1;
   let selectedBlacklistIndex = -1;
 
   let blacklist = getBlacklist();
   let whitelist = getWhitelist();
 
-  const windowOpen = ui.getWindow(WINDOW_CLASSIFICATIONS.mainMenuWindow);
-  if (windowOpen !== null && windowOpen !== undefined) {
-    windowOpen.bringToFront();
+  const existingMainWindow = getMainWindow();
+
+  if (existingMainWindow !== null) {
+    existingMainWindow.bringToFront();
     return;
   }
 
@@ -98,7 +97,7 @@ export function openSecretGuestsWindow(): void {
   let backgroundRefreshSubscription: IDisposable | null = null;
   let backgroundRefreshTicks = 0;
 
-  const window = ui.openWindow({
+  const mainWindow = ui.openWindow({
     classification: WINDOW_CLASSIFICATIONS.mainMenuWindow,
     title: "Secret Guests",
     width: 420,
@@ -117,10 +116,13 @@ export function openSecretGuestsWindow(): void {
     },
   });
 
+  // refresh menu UI on guest spawn
   guestGenerationSubscription = context.subscribe("guest.generation", () => {
     refreshUiFromGameState();
   });
 
+  // refresh menu UI every second
+  // will update UI if a guest happens to leave, die, or otherwise be removed from the park
   backgroundRefreshSubscription = context.subscribe("interval.tick", () => {
     backgroundRefreshTicks++;
 
@@ -133,119 +135,146 @@ export function openSecretGuestsWindow(): void {
   });
 
   function updateNotifyOnSpawnCheckbox(): void {
-    const checkbox = window.findWidget<CheckboxWidget>(
+    const checkbox = mainWindow.findWidget<CheckboxWidget>(
       WIDGET_NAMES.checkbox.notifyOnSpawn,
     );
 
     checkbox.isChecked = getNotifyOnSpawn();
   }
 
-  // possibly do something with windowUtilities here?
-  // change to be a refresh button kind of thing like refreshuifromgamestate?
-  // put button refreshes in refreshuifromgamestate?
-  function toggleForceSpawnButtonEnabled(): void {
-    const button = window.findWidget<ButtonWidget>(
-      WIDGET_NAMES.button.forceSpawn,
-    );
-
+  function refreshForceSpawnButtonState(): void {
+    let disable = true;
     const selected = getSelectedGuest();
 
-    if (selected === null) {
-      button.isDisabled = true;
-      return;
+    if (selected !== null) {
+      // if every guest on the map has the selected name, cannot force spawn anymore
+      disable = map
+        .getAllEntities("guest")
+        .every((guest) => guest.name === selected.name);
     }
 
-    const hasFreeGuest = !map
-      .getAllEntities("guest")
-      .every((guest) => guest.name === selected.name);
-
-    button.isDisabled = !hasFreeGuest;
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.button.forceSpawn, {
+      isDisabled: disable,
+    });
   }
 
+  function refreshBlacklistNameButtonState(): void {
+    let disable = true;
+    const selected = getSelectedGuest();
+
+    if (selected !== null) {
+      disable = getWhitelist().length === 0 || selectedWhitelistIndex === -1;
+    }
+
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.button.blacklistName, {
+      isDisabled: disable,
+    });
+  }
+
+  function refreshWhitelistNameButtonState(): void {
+    let disable = true;
+    const selected = getSelectedGuest();
+
+    if (selected !== null) {
+      disable = getBlacklist().length === 0 || selectedBlacklistIndex === -1;
+    }
+
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.button.whitelistName, {
+      isDisabled: disable,
+    });
+  }
+
+  // currently on delete of custom guest and adjusting the settings, the reset button doesn't get disabled
+  // to replicate:
+  // currently, as of July 29 4:33pm, add custom guest, resetSettings gets updated because spawnCountTotal is 25 by default now and spawnCountTotal is still 24 from default settings
+  // scrolling up 1 to 25 causes it to become disabled automatically
+  // when deleting while custom guest is in whitelist, spawnCountTotal set to 24 (with reset settings button active before deleting, as it should be)
+  // then delete, totalGuests is 24 now, have to scroll up to 25 then 24 to disable
+  // when deleting while custom guest is in blacklist, can't update the button at all for some reason. Have to close and reopen
+  function refreshResetSettingsButtonState(): void {
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.button.resetSettings, {
+      isDisabled: areSettingsDefault(),
+    });
+  }
+
+  // refresh force spawn button/guest description count text
+  // can be called independent from user actions, like on interval
   function refreshUiFromGameState(): void {
-    updateWidgetText(
-      window,
-      WIDGET_NAMES.label.guestDescription,
-      getSelectedDescription(getSelectedGuest()),
-    );
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.label.guestDescription, {
+      text: getSelectedDescription(getSelectedGuest()),
+    });
 
-    toggleForceSpawnButtonEnabled();
-  }
-
-  function getSelectedGuest(): SecretGuest | null {
-    if (selectedWhitelistIndex >= 0) {
-      return whitelist[selectedWhitelistIndex] ?? null;
-    }
-
-    if (selectedBlacklistIndex >= 0) {
-      return blacklist[selectedBlacklistIndex] ?? null;
-    }
-
-    return null;
+    refreshBlacklistNameButtonState();
+    refreshWhitelistNameButtonState();
+    refreshForceSpawnButtonState();
+    refreshResetSettingsButtonState();
   }
 
   function refreshListWidgets(): void {
+    // maybe see about not causing side effects in a function?
     blacklist = getBlacklist();
     whitelist = getWhitelist();
 
-    getListWidget(WIDGET_NAMES.listview.whitelist).items =
-      getGuestNames(whitelist);
-    getListWidget(WIDGET_NAMES.listview.blacklist).items =
-      getGuestNames(blacklist);
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
+      items: getGuestNames(whitelist),
+    });
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
+      items: getGuestNames(blacklist),
+    });
   }
 
-  function refreshLists(
+  function refreshListsAfterNameMoved(
     listToReselect: "whitelist" | "blacklist",
     previousIndex: number,
   ): void {
     refreshListWidgets();
 
-    const whitelistWidget = getListWidget(WIDGET_NAMES.listview.whitelist);
-    const blacklistWidget = getListWidget(WIDGET_NAMES.listview.blacklist);
-    whitelistWidget.selectedCell = null;
-    blacklistWidget.selectedCell = null;
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
+      selectedCell: null,
+    });
+
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
+      selectedCell: null,
+    });
 
     selectedWhitelistIndex = -1;
     selectedBlacklistIndex = -1;
 
     if (listToReselect === "whitelist") {
-      selectedWhitelistIndex = nextSelectIndex(previousIndex, whitelist.length);
+      selectedWhitelistIndex = nextSelectIndexForList(previousIndex, whitelist);
 
       if (selectedWhitelistIndex !== -1) {
-        whitelistWidget.selectedCell = {
-          row: selectedWhitelistIndex,
-          column: 0,
-        };
+        updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
+          selectedCell: {
+            row: selectedWhitelistIndex,
+            column: 0,
+          },
+        });
       }
     } else {
-      selectedBlacklistIndex = nextSelectIndex(previousIndex, blacklist.length);
+      selectedBlacklistIndex = nextSelectIndexForList(previousIndex, blacklist);
 
       if (selectedBlacklistIndex !== -1) {
-        blacklistWidget.selectedCell = {
-          row: selectedBlacklistIndex,
-          column: 0,
-        };
+        updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
+          selectedCell: {
+            row: selectedBlacklistIndex,
+            column: 0,
+          },
+        });
+        // blacklistWidget.selectedCell = {
+        //   row: selectedBlacklistIndex,
+        //   column: 0,
+        // };
       }
     }
 
     refreshUiFromGameState();
   }
 
-  // move to windowUtilities
-  function getListWidget(widgetName: string): ListViewWidget {
-    return window.findWidget<ListViewWidget>(widgetName);
-  }
-
-  function showResetConfirmation(onConfirm: () => void): void {
-    // move to windowUtilities
-    const resetConfirmationWindowOpen = ui.getWindow(
-      WINDOW_CLASSIFICATIONS.confirmResetSettingsWindow,
-    );
-    if (
-      resetConfirmationWindowOpen !== null &&
-      resetConfirmationWindowOpen !== undefined
-    ) {
-      resetConfirmationWindowOpen.bringToFront();
+  function showResetConfirmationWindow(onConfirm: () => void): void {
+    const resetConfirmationWindow = getResetSettingsConfirmationWindow();
+    if (resetConfirmationWindow !== null) {
+      resetConfirmationWindow.bringToFront();
       return;
     }
 
@@ -254,12 +283,12 @@ export function openSecretGuestsWindow(): void {
     const confirmWidth = 220;
     const confirmHeight = 90;
     const x =
-      parentWindow !== null && parentWindow !== undefined
+      parentWindow !== null
         ? parentWindow.x + Math.floor((parentWindow.width - confirmWidth) / 2)
         : 200;
 
     const y =
-      parentWindow !== null && parentWindow !== undefined
+      parentWindow !== null
         ? parentWindow.y + Math.floor((parentWindow.height - confirmHeight) / 2)
         : 150;
 
@@ -309,8 +338,73 @@ export function openSecretGuestsWindow(): void {
     });
   }
 
+  function getSpawnChanceSpinnerText(chance: number = spawnChance): string {
+    return `${chance}%`;
+  }
+
+  function getSelectedGuest(): SecretGuest | null {
+    if (selectedWhitelistIndex >= 0) {
+      return whitelist[selectedWhitelistIndex] ?? null;
+    }
+
+    if (selectedBlacklistIndex >= 0) {
+      return blacklist[selectedBlacklistIndex] ?? null;
+    }
+
+    return null;
+  }
+
+  // possibly use in areSettingsDefault? possibly remove?
+  // function haveSameItems<T>(a: T[], b: readonly T[]): boolean {
+  //   return a.length === b.length && a.every((value) => b.indexOf(value) !== -1);
+  // }
+
+  // should I be accessing localStorage here? Or my own variables that represent game state?
+  // need to double check all game state changes and whatnot
+  function areSettingsDefault(): boolean {
+    const curBlacklist = getBlacklistNames();
+    // change this to just returning this if expression
+    if (
+      // only need to check blacklist because whitelist is built from that + custom names
+      // maybe could make there be a check for only non-custom secret guests so it keeps them in the blacklist?
+      // maybe would need a customGuestsBlacklist?
+      // Or just extract the custom guests from the blacklist before resetting and save them into the blacklist?
+      curBlacklist.length === DEFAULT_VALUES.blacklistGuestsNames.length &&
+      curBlacklist.every((name) =>
+        DEFAULT_VALUES.blacklistGuestsNames.some(
+          (defaultName) => name === defaultName,
+        ),
+      ) &&
+      getNotifyOnSpawn() === DEFAULT_VALUES.notifyOnSpawn &&
+      getSpawnChance() === DEFAULT_VALUES.spawnChance &&
+      getSpawnCountPerName() === DEFAULT_VALUES.spawnCountPerName &&
+      getSpawnCountTotal() === getAllGuests().length
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
   function getWidgets(): WidgetDesc[] {
     return [
+      // add custom guests button
+      {
+        type: "button",
+        name: WIDGET_NAMES.button.openCustomGuestsManager,
+        x: 10,
+        y: 16,
+        width: 110,
+        height: 15,
+        text: "Custom Guests",
+        tooltip: "Open the Custom Guests Manager",
+        onClick: () => {
+          openCustomGuestsWindow(() => {
+            refreshListWidgets();
+            refreshUiFromGameState();
+          });
+        },
+      },
       // whitelist
       {
         type: "listview",
@@ -329,10 +423,11 @@ export function openSecretGuestsWindow(): void {
           selectedWhitelistIndex = index;
           selectedBlacklistIndex = -1;
 
-          const blacklistWidget = getListWidget(
-            WIDGET_NAMES.listview.blacklist,
-          );
-          blacklistWidget.selectedCell = null;
+          updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
+            selectedCell: null,
+          });
+          // refreshBlacklistNameButtonState();
+          // refreshWhitelistNameButtonState();
           refreshUiFromGameState();
         },
       },
@@ -364,10 +459,11 @@ export function openSecretGuestsWindow(): void {
           selectedBlacklistIndex = index;
           selectedWhitelistIndex = -1;
 
-          const whitelistWidget = getListWidget(
-            WIDGET_NAMES.listview.whitelist,
-          );
-          whitelistWidget.selectedCell = null;
+          updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
+            selectedCell: null,
+          });
+          // refreshBlacklistNameButtonState();
+          // refreshWhitelistNameButtonState();
           refreshUiFromGameState();
         },
       },
@@ -384,13 +480,14 @@ export function openSecretGuestsWindow(): void {
       // move to blacklist button
       {
         type: "button",
-        name: "blacklist-button",
+        name: WIDGET_NAMES.button.blacklistName,
         x: 50,
         y: 232,
         width: 110,
         height: 20,
         text: "Blacklist >",
-        tooltip: "Move selected whitelist guest to the blacklist",
+        //tooltip: "Move selected whitelist guest to the blacklist",
+        isDisabled: true,
         onClick: () => {
           if (
             selectedWhitelistIndex < 0 ||
@@ -403,20 +500,22 @@ export function openSecretGuestsWindow(): void {
           const nextWhitelistIndex = selectedWhitelistIndex;
 
           saveBlacklistNames(blacklist.concat([guest]));
-          refreshLists("whitelist", nextWhitelistIndex);
+          refreshListsAfterNameMoved("whitelist", nextWhitelistIndex);
+          //refreshBlacklistNameButtonState();
           refreshUiFromGameState();
         },
       },
       // move to whitelist button
       {
         type: "button",
-        name: "whitelist-button",
+        name: WIDGET_NAMES.button.whitelistName,
         x: 260,
         y: 232,
         width: 110,
         height: 20,
         text: "< Allow",
-        tooltip: "Move selected blacklist guest to the whitelist",
+        //tooltip: "Move selected blacklist guest to the whitelist",
+        isDisabled: true,
         onClick: () => {
           if (
             selectedBlacklistIndex < 0 ||
@@ -432,7 +531,8 @@ export function openSecretGuestsWindow(): void {
           );
 
           saveBlacklistNames(newBlacklist);
-          refreshLists("blacklist", nextBlacklistIndex);
+          refreshListsAfterNameMoved("blacklist", nextBlacklistIndex);
+          //refreshWhitelistNameButtonState();
           refreshUiFromGameState();
         },
       },
@@ -455,25 +555,23 @@ export function openSecretGuestsWindow(): void {
         y: 260,
         width: 68,
         height: 12,
-        text: `${spawnChance}%`,
+        text: getSpawnChanceSpinnerText(),
         tooltip: "[min 0 -- max 100]",
         onDecrement: () => {
           spawnChance = Math.max(0, formatChanceNumber(spawnChance - 0.1));
           saveSpawnChance(spawnChance);
-          updateWidgetText(
-            window,
-            WIDGET_NAMES.spinner.spawnChance,
-            `${spawnChance}%`,
-          );
+          updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnChance, {
+            text: getSpawnChanceSpinnerText(),
+          });
+          refreshResetSettingsButtonState();
         },
         onIncrement: () => {
           spawnChance = Math.min(100, formatChanceNumber(spawnChance + 0.1));
           saveSpawnChance(spawnChance);
-          updateWidgetText(
-            window,
-            WIDGET_NAMES.spinner.spawnChance,
-            `${spawnChance}%`,
-          );
+          updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnChance, {
+            text: getSpawnChanceSpinnerText(),
+          });
+          refreshResetSettingsButtonState();
         },
         onClick: () => {
           ui.showTextInput({
@@ -492,12 +590,16 @@ export function openSecretGuestsWindow(): void {
                 0,
                 Math.min(100, formatChanceNumber(newSpawnChance)),
               );
+
               saveSpawnChance(spawnChance);
-              updateWidgetText(
-                window,
+              updateWidgetProperties(
+                mainWindow,
                 WIDGET_NAMES.spinner.spawnChance,
-                `${spawnChance}%`,
+                {
+                  text: getSpawnChanceSpinnerText(),
+                },
               );
+              refreshResetSettingsButtonState();
             },
           });
         },
@@ -526,11 +628,14 @@ export function openSecretGuestsWindow(): void {
         onDecrement: () => {
           spawnCountPerName = Math.max(0, spawnCountPerName - 1);
           saveSpawnCountPerName(spawnCountPerName);
-          updateWidgetText(
-            window,
+          updateWidgetProperties(
+            mainWindow,
             WIDGET_NAMES.spinner.spawnCountPerName,
-            spawnCountPerName.toString(),
+            {
+              text: spawnCountPerName.toString(),
+            },
           );
+          refreshResetSettingsButtonState();
         },
         onIncrement: () => {
           spawnCountPerName = Math.min(
@@ -538,11 +643,14 @@ export function openSecretGuestsWindow(): void {
             spawnCountPerName + 1,
           );
           saveSpawnCountPerName(spawnCountPerName);
-          updateWidgetText(
-            window,
+          updateWidgetProperties(
+            mainWindow,
             WIDGET_NAMES.spinner.spawnCountPerName,
-            spawnCountPerName.toString(),
+            {
+              text: spawnCountPerName.toString(),
+            },
           );
+          refreshResetSettingsButtonState();
         },
         onClick: () => {
           ui.showTextInput({
@@ -565,11 +673,14 @@ export function openSecretGuestsWindow(): void {
                 ),
               );
               saveSpawnCountPerName(spawnCountPerName);
-              updateWidgetText(
-                window,
+              updateWidgetProperties(
+                mainWindow,
                 WIDGET_NAMES.spinner.spawnCountPerName,
-                spawnCountPerName.toString(),
+                {
+                  text: spawnCountPerName.toString(),
+                },
               );
+              refreshResetSettingsButtonState();
             },
           });
         },
@@ -598,11 +709,14 @@ export function openSecretGuestsWindow(): void {
         onDecrement: () => {
           spawnCountTotal = Math.max(0, spawnCountTotal - 1);
           saveSpawnCountTotal(spawnCountTotal);
-          updateWidgetText(
-            window,
+          updateWidgetProperties(
+            mainWindow,
             WIDGET_NAMES.spinner.spawnCountTotal,
-            spawnCountTotal.toString(),
+            {
+              text: spawnCountTotal.toString(),
+            },
           );
+          refreshResetSettingsButtonState();
         },
         onIncrement: () => {
           spawnCountTotal = Math.min(
@@ -610,11 +724,14 @@ export function openSecretGuestsWindow(): void {
             spawnCountTotal + 1,
           );
           saveSpawnCountTotal(spawnCountTotal);
-          updateWidgetText(
-            window,
+          updateWidgetProperties(
+            mainWindow,
             WIDGET_NAMES.spinner.spawnCountTotal,
-            spawnCountTotal.toString(),
+            {
+              text: spawnCountTotal.toString(),
+            },
           );
+          refreshResetSettingsButtonState();
         },
         onClick: () => {
           ui.showTextInput({
@@ -637,13 +754,33 @@ export function openSecretGuestsWindow(): void {
                 ),
               );
               saveSpawnCountTotal(spawnCountTotal);
-              updateWidgetText(
-                window,
+              updateWidgetProperties(
+                mainWindow,
                 WIDGET_NAMES.spinner.spawnCountTotal,
-                spawnCountTotal.toString(),
+                {
+                  text: spawnCountTotal.toString(),
+                },
               );
+              refreshResetSettingsButtonState();
             },
           });
+        },
+      },
+      // notify of spawn checkbox
+      {
+        type: "checkbox",
+        name: WIDGET_NAMES.checkbox.notifyOnSpawn,
+        x: 260,
+        y: 257,
+        width: 130,
+        height: 12,
+        text: "Notify on spawn",
+        tooltip:
+          "Whether to receive a notification on secret guest spawn or not",
+        isChecked: notifyOnSpawn,
+        onChange: (isChecked) => {
+          saveNotifyOnSpawn(isChecked);
+          refreshResetSettingsButtonState();
         },
       },
       // force spawn selected button
@@ -674,10 +811,11 @@ export function openSecretGuestsWindow(): void {
         y: 295,
         width: 110,
         height: 20,
+        isDisabled: areSettingsDefault(),
         text: "Reset Settings",
         tooltip: "Resets settings to default (will not erase custom guests)",
         onClick: () => {
-          showResetConfirmation(() => {
+          showResetConfirmationWindow(() => {
             resetSettings();
 
             spawnChance = getSpawnChance();
@@ -686,71 +824,70 @@ export function openSecretGuestsWindow(): void {
 
             refreshListWidgets();
 
-            updateWidgetText(
-              window,
+            // make refreshUIFromGameState or whatever do this too?
+            updateWidgetProperties(
+              mainWindow,
               WIDGET_NAMES.spinner.spawnChance,
-              `${spawnChance}%`,
+              {
+                text: getSpawnChanceSpinnerText(),
+              },
             );
-            updateWidgetText(
-              window,
+            updateWidgetProperties(
+              mainWindow,
               WIDGET_NAMES.spinner.spawnCountPerName,
-              spawnCountPerName.toString(),
+              {
+                text: spawnCountPerName.toString(),
+              },
             );
-            updateWidgetText(
-              window,
+            updateWidgetProperties(
+              mainWindow,
               WIDGET_NAMES.spinner.spawnCountTotal,
-              spawnCountTotal.toString(),
+              {
+                text: spawnCountTotal.toString(),
+              },
             );
 
-            getListWidget(WIDGET_NAMES.listview.whitelist).selectedCell = null;
-            getListWidget(WIDGET_NAMES.listview.blacklist).selectedCell = null;
+            // turn setting selectedCell into its own function in windowUtilities
+            // or maybe just setting null?
+            // or overload them
+            // updateSelectedListItem(window, etc)
+            // maybe turn several common updates into wrapper functions
+            // updateWidgetText(window, WIDGET_NAMES.listview.<something>, text)
+            // could possibly do a union hardcode string property like whitelist | blacklist | customGuests for widget name too
+            // that corresponds to the constants
+            updateWidgetProperties(
+              mainWindow,
+              WIDGET_NAMES.listview.whitelist,
+              {
+                selectedCell: null,
+              },
+            );
+            updateWidgetProperties(
+              mainWindow,
+              WIDGET_NAMES.listview.blacklist,
+              {
+                selectedCell: null,
+              },
+            );
 
             selectedWhitelistIndex = -1;
             selectedBlacklistIndex = -1;
 
-            updateWidgetText(
-              window,
+            updateWidgetProperties(
+              mainWindow,
               WIDGET_NAMES.label.guestDescription,
-              getSelectedDescription(null),
+              {
+                text: getSelectedDescription(null),
+              },
             );
 
             // change notifyOnSpawn to be similar to spawnCountPerName, spawnChance, etc
             // so like a plugin level data layer?
             updateNotifyOnSpawnCheckbox();
-            toggleForceSpawnButtonEnabled();
-          });
-        },
-      },
-      // notify of spawn checkbox
-      {
-        type: "checkbox",
-        name: WIDGET_NAMES.checkbox.notifyOnSpawn,
-        x: 260,
-        y: 257,
-        width: 130,
-        height: 12,
-        text: "Notify on spawn",
-        tooltip:
-          "Whether to receive a notification on secret guest spawn or not",
-        isChecked: getNotifyOnSpawn(),
-        onChange: (isChecked) => {
-          saveNotifyOnSpawn(isChecked);
-        },
-      },
-      // add custom guests button
-      {
-        type: "button",
-        name: "custom-guests-button",
-        x: 10,
-        y: 16,
-        width: 110,
-        height: 15,
-        text: "Custom Guests",
-        tooltip: "Open the Custom Guests Manager",
-        onClick: () => {
-          openCustomGuestsWindow(() => {
-            refreshListWidgets();
+            // refreshWhitelistNameButtonState();
+            // refreshBlacklistNameButtonState();
             refreshUiFromGameState();
+            //refreshForceSpawnButtonState();
           });
         },
       },
