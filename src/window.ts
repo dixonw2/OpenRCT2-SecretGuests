@@ -51,14 +51,6 @@ function getSelectedDescription(guest: SecretGuest | null): string {
   return `${guest.name}: ${guest.description} (Current: ${curGuestCount})`;
 }
 
-function resetSettings(): void {
-  saveBlacklistNames();
-  saveSpawnChance();
-  saveSpawnCountPerName();
-  saveSpawnCountTotal();
-  saveNotifyOnSpawn();
-}
-
 export function updateOpenWindowDescription(guest: SecretGuest): void {
   if (displayedGuestName !== guest.name || typeof ui === "undefined") {
     return;
@@ -77,9 +69,42 @@ export function updateOpenWindowDescription(guest: SecretGuest): void {
 
 export function openSecretGuestsWindow(): void {
   let spawnChance = getSpawnChance();
+  function setSpawnChance(value: number = DEFAULT_VALUES.spawnChance): void {
+    spawnChance = value;
+    saveSpawnChance(spawnChance);
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnChance, {
+      text: getSpawnChanceSpinnerText(),
+    });
+  }
+
   let spawnCountPerName = getSpawnCountPerName();
+  function setSpawnCountPerName(
+    value: number = DEFAULT_VALUES.spawnCountPerName,
+  ): void {
+    spawnCountPerName = value;
+    saveSpawnCountPerName(spawnCountPerName);
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnCountPerName, {
+      text: spawnCountPerName.toString(),
+    });
+  }
+
   let spawnCountTotal = getSpawnCountTotal();
+  function setSpawnCountTotal(value: number = getAllGuests().length) {
+    spawnCountTotal = value;
+    saveSpawnCountTotal(spawnCountTotal);
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnCountTotal, {
+      text: spawnCountTotal.toString(),
+    });
+  }
+
   let notifyOnSpawn = getNotifyOnSpawn();
+  function setNotifyOnSpawn(value: boolean = DEFAULT_VALUES.notifyOnSpawn) {
+    notifyOnSpawn = value;
+    saveNotifyOnSpawn(notifyOnSpawn);
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.checkbox.notifyOnSpawn, {
+      isChecked: notifyOnSpawn,
+    });
+  }
   let selectedWhitelistIndex = -1;
   let selectedBlacklistIndex = -1;
 
@@ -131,16 +156,12 @@ export function openSecretGuestsWindow(): void {
     }
 
     backgroundRefreshTicks = 0;
+    // refresh ui elements that can change without user input, as noted above. Remove this comment once implemented
+    // or just change refreshUiFromGameState btw
+    // overall this should only refresh name description if something is selected and if Force Spawn is possible
+    //refreshVolatileGameState();
     refreshUiFromGameState();
   });
-
-  function updateNotifyOnSpawnCheckbox(): void {
-    const checkbox = mainWindow.findWidget<CheckboxWidget>(
-      WIDGET_NAMES.checkbox.notifyOnSpawn,
-    );
-
-    checkbox.isChecked = getNotifyOnSpawn();
-  }
 
   function refreshForceSpawnButtonState(): void {
     let disable = true;
@@ -261,10 +282,6 @@ export function openSecretGuestsWindow(): void {
             column: 0,
           },
         });
-        // blacklistWidget.selectedCell = {
-        //   row: selectedBlacklistIndex,
-        //   column: 0,
-        // };
       }
     }
 
@@ -363,12 +380,11 @@ export function openSecretGuestsWindow(): void {
   // need to double check all game state changes and whatnot
   function areSettingsDefault(): boolean {
     const curBlacklist = getBlacklistNames();
-    // change this to just returning this if expression
-    if (
-      // only need to check blacklist because whitelist is built from that + custom names
-      // maybe could make there be a check for only non-custom secret guests so it keeps them in the blacklist?
-      // maybe would need a customGuestsBlacklist?
-      // Or just extract the custom guests from the blacklist before resetting and save them into the blacklist?
+    // only need to check blacklist because whitelist is built from that + custom names
+    // maybe could make there be a check for only non-custom secret guests so it keeps them in the blacklist?
+    // maybe would need a customGuestsBlacklist?
+    // Or just extract the custom guests from the blacklist before resetting and save them into the blacklist?
+    return (
       curBlacklist.length === DEFAULT_VALUES.blacklistGuestsNames.length &&
       curBlacklist.every((name) =>
         DEFAULT_VALUES.blacklistGuestsNames.some(
@@ -379,11 +395,17 @@ export function openSecretGuestsWindow(): void {
       getSpawnChance() === DEFAULT_VALUES.spawnChance &&
       getSpawnCountPerName() === DEFAULT_VALUES.spawnCountPerName &&
       getSpawnCountTotal() === getAllGuests().length
-    ) {
-      return true;
-    }
+    );
+  }
 
-    return false;
+  function resetSettings(): void {
+    setSpawnChance();
+    setSpawnCountPerName();
+    setSpawnCountTotal();
+    setNotifyOnSpawn();
+
+    //CHANGE THIS TO A PROPER SETBLACKLIST????
+    saveBlacklistNames();
   }
 
   function getWidgets(): WidgetDesc[] {
@@ -486,7 +508,6 @@ export function openSecretGuestsWindow(): void {
         width: 110,
         height: 20,
         text: "Blacklist >",
-        //tooltip: "Move selected whitelist guest to the blacklist",
         isDisabled: true,
         onClick: () => {
           if (
@@ -514,7 +535,6 @@ export function openSecretGuestsWindow(): void {
         width: 110,
         height: 20,
         text: "< Allow",
-        //tooltip: "Move selected blacklist guest to the whitelist",
         isDisabled: true,
         onClick: () => {
           if (
@@ -558,19 +578,11 @@ export function openSecretGuestsWindow(): void {
         text: getSpawnChanceSpinnerText(),
         tooltip: "[min 0 -- max 100]",
         onDecrement: () => {
-          spawnChance = Math.max(0, formatChanceNumber(spawnChance - 0.1));
-          saveSpawnChance(spawnChance);
-          updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnChance, {
-            text: getSpawnChanceSpinnerText(),
-          });
+          setSpawnChance(Math.max(0, formatChanceNumber(spawnChance - 0.1)));
           refreshResetSettingsButtonState();
         },
         onIncrement: () => {
-          spawnChance = Math.min(100, formatChanceNumber(spawnChance + 0.1));
-          saveSpawnChance(spawnChance);
-          updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnChance, {
-            text: getSpawnChanceSpinnerText(),
-          });
+          setSpawnChance(Math.min(100, formatChanceNumber(spawnChance + 0.1)));
           refreshResetSettingsButtonState();
         },
         onClick: () => {
@@ -586,18 +598,8 @@ export function openSecretGuestsWindow(): void {
                 return;
               }
 
-              spawnChance = Math.max(
-                0,
-                Math.min(100, formatChanceNumber(newSpawnChance)),
-              );
-
-              saveSpawnChance(spawnChance);
-              updateWidgetProperties(
-                mainWindow,
-                WIDGET_NAMES.spinner.spawnChance,
-                {
-                  text: getSpawnChanceSpinnerText(),
-                },
+              setSpawnChance(
+                Math.max(0, Math.min(100, formatChanceNumber(newSpawnChance))),
               );
               refreshResetSettingsButtonState();
             },
@@ -624,31 +626,17 @@ export function openSecretGuestsWindow(): void {
         width: 68,
         height: 12,
         text: spawnCountPerName.toString(),
-        tooltip: "[min 0 -- max 999]",
+        tooltip: `[min 0 -- max ${DEFAULT_VALUES.spawnCountPerNameMax}]`,
         onDecrement: () => {
-          spawnCountPerName = Math.max(0, spawnCountPerName - 1);
-          saveSpawnCountPerName(spawnCountPerName);
-          updateWidgetProperties(
-            mainWindow,
-            WIDGET_NAMES.spinner.spawnCountPerName,
-            {
-              text: spawnCountPerName.toString(),
-            },
-          );
+          setSpawnCountPerName(Math.max(0, spawnCountPerName - 1));
           refreshResetSettingsButtonState();
         },
         onIncrement: () => {
-          spawnCountPerName = Math.min(
-            DEFAULT_VALUES.spawnCountPerNameMax,
-            spawnCountPerName + 1,
-          );
-          saveSpawnCountPerName(spawnCountPerName);
-          updateWidgetProperties(
-            mainWindow,
-            WIDGET_NAMES.spinner.spawnCountPerName,
-            {
-              text: spawnCountPerName.toString(),
-            },
+          setSpawnCountPerName(
+            Math.min(
+              DEFAULT_VALUES.spawnCountPerNameMax,
+              spawnCountPerName + 1,
+            ),
           );
           refreshResetSettingsButtonState();
         },
@@ -665,20 +653,14 @@ export function openSecretGuestsWindow(): void {
                 return;
               }
 
-              spawnCountPerName = Math.max(
-                0,
-                Math.min(
-                  DEFAULT_VALUES.spawnCountPerNameMax,
-                  Math.floor(newSpawnCount),
+              setSpawnCountPerName(
+                Math.max(
+                  0,
+                  Math.min(
+                    DEFAULT_VALUES.spawnCountPerNameMax,
+                    Math.floor(newSpawnCount),
+                  ),
                 ),
-              );
-              saveSpawnCountPerName(spawnCountPerName);
-              updateWidgetProperties(
-                mainWindow,
-                WIDGET_NAMES.spinner.spawnCountPerName,
-                {
-                  text: spawnCountPerName.toString(),
-                },
               );
               refreshResetSettingsButtonState();
             },
@@ -705,31 +687,14 @@ export function openSecretGuestsWindow(): void {
         width: 68,
         height: 12,
         text: spawnCountTotal.toString(),
-        tooltip: "[min 0 -- max 999]",
+        tooltip: `[min 0 -- max ${DEFAULT_VALUES.spawnCountTotalMax}]`,
         onDecrement: () => {
-          spawnCountTotal = Math.max(0, spawnCountTotal - 1);
-          saveSpawnCountTotal(spawnCountTotal);
-          updateWidgetProperties(
-            mainWindow,
-            WIDGET_NAMES.spinner.spawnCountTotal,
-            {
-              text: spawnCountTotal.toString(),
-            },
-          );
+          setSpawnCountTotal(Math.max(0, spawnCountTotal - 1));
           refreshResetSettingsButtonState();
         },
         onIncrement: () => {
-          spawnCountTotal = Math.min(
-            DEFAULT_VALUES.spawnCountTotalMax,
-            spawnCountTotal + 1,
-          );
-          saveSpawnCountTotal(spawnCountTotal);
-          updateWidgetProperties(
-            mainWindow,
-            WIDGET_NAMES.spinner.spawnCountTotal,
-            {
-              text: spawnCountTotal.toString(),
-            },
+          setSpawnCountTotal(
+            Math.min(DEFAULT_VALUES.spawnCountTotalMax, spawnCountTotal + 1),
           );
           refreshResetSettingsButtonState();
         },
@@ -746,20 +711,14 @@ export function openSecretGuestsWindow(): void {
                 return;
               }
 
-              spawnCountTotal = Math.max(
-                0,
-                Math.min(
-                  DEFAULT_VALUES.spawnCountTotalMax,
-                  Math.floor(newSpawnCount),
+              setSpawnCountTotal(
+                Math.max(
+                  0,
+                  Math.min(
+                    DEFAULT_VALUES.spawnCountTotalMax,
+                    Math.floor(newSpawnCount),
+                  ),
                 ),
-              );
-              saveSpawnCountTotal(spawnCountTotal);
-              updateWidgetProperties(
-                mainWindow,
-                WIDGET_NAMES.spinner.spawnCountTotal,
-                {
-                  text: spawnCountTotal.toString(),
-                },
               );
               refreshResetSettingsButtonState();
             },
@@ -817,35 +776,7 @@ export function openSecretGuestsWindow(): void {
         onClick: () => {
           showResetConfirmationWindow(() => {
             resetSettings();
-
-            spawnChance = getSpawnChance();
-            spawnCountPerName = getSpawnCountPerName();
-            spawnCountTotal = getSpawnCountTotal();
-
             refreshListWidgets();
-
-            // make refreshUIFromGameState or whatever do this too?
-            updateWidgetProperties(
-              mainWindow,
-              WIDGET_NAMES.spinner.spawnChance,
-              {
-                text: getSpawnChanceSpinnerText(),
-              },
-            );
-            updateWidgetProperties(
-              mainWindow,
-              WIDGET_NAMES.spinner.spawnCountPerName,
-              {
-                text: spawnCountPerName.toString(),
-              },
-            );
-            updateWidgetProperties(
-              mainWindow,
-              WIDGET_NAMES.spinner.spawnCountTotal,
-              {
-                text: spawnCountTotal.toString(),
-              },
-            );
 
             // turn setting selectedCell into its own function in windowUtilities
             // or maybe just setting null?
@@ -881,9 +812,6 @@ export function openSecretGuestsWindow(): void {
               },
             );
 
-            // change notifyOnSpawn to be similar to spawnCountPerName, spawnChance, etc
-            // so like a plugin level data layer?
-            updateNotifyOnSpawnCheckbox();
             // refreshWhitelistNameButtonState();
             // refreshBlacklistNameButtonState();
             refreshUiFromGameState();
