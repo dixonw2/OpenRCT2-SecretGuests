@@ -17,6 +17,7 @@ Inspired by Sun-gd00's [SecretCharacterSpawner](https://github.com/Sun-gd00/Open
 ## Planned features
 
 - Allow changing number of secret guests per name individually rather than overall
+- Allow changing chance of secret guests per name individually rather than overall
 - Add ability to add custom names to spawn with specific actions
 
 ## Installation

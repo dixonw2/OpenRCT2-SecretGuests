@@ -20,9 +20,10 @@ import { getCurrentSecretCount, forceSpawnGuest } from "./spawning";
 import { openCustomGuestsWindow } from "./customGuestsWindow";
 import {
   getMainWindow,
-  getResetSettingsConfirmationWindow,
   updateWidgetProperties,
   nextSelectIndexForList,
+  showCenteredConfirmationWindow,
+  formatNumberToDecimal,
 } from "./windowUtilities";
 import {
   WINDOW_CLASSIFICATIONS,
@@ -30,10 +31,6 @@ import {
   DEFAULT_VALUES,
   BACKGROUND_UI_REFRESH_TICKS,
 } from "./constants";
-
-function formatChanceNumber(n: number): number {
-  return Number(n.toFixed(1));
-}
 
 export function setSelectedGuestDescription(
   selectedGuest: SecretGuest | null = null,
@@ -98,7 +95,7 @@ export function openSecretGuestsWindow(): void {
   let selectedBlacklistIndex = -1;
 
   function setSelectedGuestIndex(
-    list: "whitelist" | "blacklist",
+    list: "whitelist" | "blacklist" | null = null,
     value: number = -1,
   ): void {
     if (list === "whitelist") {
@@ -118,7 +115,7 @@ export function openSecretGuestsWindow(): void {
       updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
         selectedCell: null,
       });
-    } else {
+    } else if (list === "blacklist") {
       selectedBlacklistIndex = value;
       selectedWhitelistIndex = -1;
 
@@ -133,6 +130,17 @@ export function openSecretGuestsWindow(): void {
       });
 
       updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
+        selectedCell: null,
+      });
+    } else {
+      selectedWhitelistIndex = -1;
+      selectedBlacklistIndex = -1;
+
+      updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
+        selectedCell: null,
+      });
+
+      updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
         selectedCell: null,
       });
     }
@@ -259,13 +267,8 @@ export function openSecretGuestsWindow(): void {
    * Should be refreshed any time the whitelist is updated.
    */
   function refreshBlacklistNameButtonState(): void {
-    let disable = true;
-    const selected = getSelectedGuest();
-
-    if (selected !== null) {
-      disable = whitelist.length === 0 || selectedWhitelistIndex === -1;
-    }
-
+    const disable =
+      selectedWhitelistIndex === -1 || getSelectedGuest() === null;
     updateWidgetProperties(mainWindow, WIDGET_NAMES.button.moveToBlacklist, {
       isDisabled: disable,
     });
@@ -278,13 +281,8 @@ export function openSecretGuestsWindow(): void {
    * Should be refreshed any time the blacklist is updated
    */
   function refreshWhitelistNameButtonState(): void {
-    let disable = true;
-    const selected = getSelectedGuest();
-
-    if (selected !== null) {
-      disable = blacklist.length === 0 || selectedBlacklistIndex === -1;
-    }
-
+    const disable =
+      selectedBlacklistIndex === -1 || getSelectedGuest() === null;
     updateWidgetProperties(mainWindow, WIDGET_NAMES.button.moveToWhitelist, {
       isDisabled: disable,
     });
@@ -297,83 +295,36 @@ export function openSecretGuestsWindow(): void {
     if (listToReselect === "whitelist") {
       setSelectedGuestIndex(
         "whitelist",
-        nextSelectIndexForList(selectedWhitelistIndex, whitelist),
+        nextSelectIndexForList<SecretGuest>(selectedWhitelistIndex, whitelist),
       );
     } else {
       setSelectedGuestIndex(
         "blacklist",
-        nextSelectIndexForList(selectedBlacklistIndex, blacklist),
+        nextSelectIndexForList<SecretGuest>(selectedBlacklistIndex, blacklist),
       );
     }
 
     refreshUiFromGameState();
   }
 
-  function showResetConfirmationWindow(onConfirm: () => void): void {
-    const resetConfirmationWindow = getResetSettingsConfirmationWindow();
-    if (resetConfirmationWindow !== null) {
-      resetConfirmationWindow.bringToFront();
-      return;
-    }
+  function getSpawnChanceIncrementStep(chance: number = spawnChance): number {
+    return chance < 0.1 ? 0.01 : 0.1;
+  }
 
-    const parentWindow = getMainWindow();
+  function getSpawnChanceDecrementStep(chance: number = spawnChance): number {
+    return chance <= 0.1 ? 0.01 : 0.1;
+  }
 
-    const confirmWidth = 220;
-    const confirmHeight = 90;
-    const x =
-      parentWindow !== null
-        ? parentWindow.x + Math.floor((parentWindow.width - confirmWidth) / 2)
-        : 200;
+  function normalizeSpawnChance(chance: number): number {
+    const normalized = Math.max(0, Math.min(100, chance));
+    const decimals = normalized < 0.1 ? 2 : 1;
 
-    const y =
-      parentWindow !== null
-        ? parentWindow.y + Math.floor((parentWindow.height - confirmHeight) / 2)
-        : 150;
+    return formatNumberToDecimal(normalized, decimals);
+  }
 
-    const confirmWindow = ui.openWindow({
-      classification: WINDOW_CLASSIFICATIONS.confirmResetSettingsWindow,
-      title: "Reset Settings",
-      x: x,
-      y: y,
-      width: 220,
-      height: 90,
-      widgets: [
-        // reset box label
-        {
-          type: "label",
-          x: 10,
-          y: 20,
-          width: 200,
-          height: 12,
-          text: "Reset all settings to default?",
-        },
-        // reset confirm
-        {
-          type: "button",
-          x: 35,
-          y: 55,
-          width: 65,
-          height: 20,
-          text: "Reset",
-          onClick: () => {
-            confirmWindow.close();
-            onConfirm();
-          },
-        },
-        // cancel confirm
-        {
-          type: "button",
-          x: 120,
-          y: 55,
-          width: 65,
-          height: 20,
-          text: "Cancel",
-          onClick: () => {
-            confirmWindow.close();
-          },
-        },
-      ],
-    });
+  function updateSpawnChance(chance: number): void {
+    setSpawnChance(normalizeSpawnChance(chance));
+    refreshResetSettingsButtonState();
   }
 
   function getSpawnChanceSpinnerText(chance: number = spawnChance): string {
@@ -563,12 +514,10 @@ export function openSecretGuestsWindow(): void {
         text: getSpawnChanceSpinnerText(),
         tooltip: "[min 0 -- max 100]",
         onDecrement: () => {
-          setSpawnChance(Math.max(0, formatChanceNumber(spawnChance - 0.1)));
-          refreshResetSettingsButtonState();
+          updateSpawnChance(spawnChance - getSpawnChanceDecrementStep());
         },
         onIncrement: () => {
-          setSpawnChance(Math.min(100, formatChanceNumber(spawnChance + 0.1)));
-          refreshResetSettingsButtonState();
+          updateSpawnChance(spawnChance + getSpawnChanceIncrementStep());
         },
         onClick: () => {
           ui.showTextInput({
@@ -583,10 +532,7 @@ export function openSecretGuestsWindow(): void {
                 return;
               }
 
-              setSpawnChance(
-                Math.max(0, Math.min(100, formatChanceNumber(newSpawnChance))),
-              );
-              refreshResetSettingsButtonState();
+              updateSpawnChance(newSpawnChance);
             },
           });
         },
@@ -759,14 +705,19 @@ export function openSecretGuestsWindow(): void {
         text: "Reset Settings",
         tooltip: "Resets settings to default (will not erase custom guests)",
         onClick: () => {
-          showResetConfirmationWindow(() => {
-            resetSettings();
-            // resets both selectedIndices to -1
-            setSelectedGuestIndex("whitelist");
-            updateListWidgets();
-            refreshResetSettingsButtonState();
-            refreshUiFromGameState();
-          });
+          showCenteredConfirmationWindow(
+            mainWindow,
+            WINDOW_CLASSIFICATIONS.confirmResetSettingsWindow,
+            "Confirm Reset Settings",
+            "Reset settings to default?",
+            () => {
+              resetSettings();
+              setSelectedGuestIndex();
+              updateListWidgets();
+              refreshResetSettingsButtonState();
+              refreshUiFromGameState();
+            },
+          );
         },
       },
     ];
