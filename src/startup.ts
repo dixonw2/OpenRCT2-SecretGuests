@@ -2,13 +2,13 @@ import {
   registerSecretGuestActions,
   startSecretGuestInterval,
 } from "./spawning";
-import { openSecretGuestsWindow, updateOpenWindowDescription } from "./window";
+import { openSecretGuestsWindow, setSelectedGuestDescription } from "./window";
 
 export function startup(): void {
   registerSecretGuestActions();
 
   startSecretGuestInterval((guest) => {
-    updateOpenWindowDescription(guest);
+    setSelectedGuestDescription(guest);
   });
 
   if (typeof ui !== "undefined") {

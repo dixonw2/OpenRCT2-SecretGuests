@@ -10,7 +10,6 @@ import {
   getSpawnCountPerName,
   getSpawnCountTotal,
   getNotifyOnSpawn,
-  getBlacklistNames,
   saveBlacklistNames,
   saveSpawnChance,
   saveSpawnCountPerName,
@@ -29,45 +28,32 @@ import {
   WINDOW_CLASSIFICATIONS,
   WIDGET_NAMES,
   DEFAULT_VALUES,
+  BACKGROUND_UI_REFRESH_TICKS,
 } from "./constants";
-
-const BACKGROUND_UI_REFRESH_TICKS = 40;
-
-let displayedGuestName: string | null = null;
 
 function formatChanceNumber(n: number): number {
   return Number(n.toFixed(1));
 }
 
-function getSelectedDescription(guest: SecretGuest | null): string {
-  if (guest === null) {
-    // do I need displayedGuestName?---------------------------------------------------------------------------------------------------------------------------
-    displayedGuestName = null;
-    return "";
+export function setSelectedGuestDescription(
+  selectedGuest: SecretGuest | null = null,
+): void {
+  let description = "";
+  if (selectedGuest !== null) {
+    description = `${selectedGuest.name}: ${selectedGuest.description} (Current: ${getCurrentSecretCount(selectedGuest.name)})`;
   }
 
-  displayedGuestName = guest.name;
-  const curGuestCount = getCurrentSecretCount(guest.name);
-  return `${guest.name}: ${guest.description} (Current: ${curGuestCount})`;
-}
+  const mw = getMainWindow();
 
-export function updateOpenWindowDescription(guest: SecretGuest): void {
-  if (displayedGuestName !== guest.name || typeof ui === "undefined") {
-    return;
+  if (mw !== null) {
+    updateWidgetProperties(mw, WIDGET_NAMES.label.guestDescription, {
+      text: description,
+    });
   }
-
-  const openWindow = getMainWindow();
-
-  if (openWindow === null) {
-    return;
-  }
-
-  updateWidgetProperties(openWindow, WIDGET_NAMES.label.guestDescription, {
-    text: getSelectedDescription(guest),
-  });
 }
 
 export function openSecretGuestsWindow(): void {
+  // #region Properties
   let spawnChance = getSpawnChance();
   function setSpawnChance(value: number = DEFAULT_VALUES.spawnChance): void {
     spawnChance = value;
@@ -89,7 +75,7 @@ export function openSecretGuestsWindow(): void {
   }
 
   let spawnCountTotal = getSpawnCountTotal();
-  function setSpawnCountTotal(value: number = getAllGuests().length) {
+  function setSpawnCountTotal(value: number = getAllGuests().length): void {
     spawnCountTotal = value;
     saveSpawnCountTotal(spawnCountTotal);
     updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnCountTotal, {
@@ -98,18 +84,73 @@ export function openSecretGuestsWindow(): void {
   }
 
   let notifyOnSpawn = getNotifyOnSpawn();
-  function setNotifyOnSpawn(value: boolean = DEFAULT_VALUES.notifyOnSpawn) {
+  function setNotifyOnSpawn(
+    value: boolean = DEFAULT_VALUES.notifyOnSpawn,
+  ): void {
     notifyOnSpawn = value;
     saveNotifyOnSpawn(notifyOnSpawn);
     updateWidgetProperties(mainWindow, WIDGET_NAMES.checkbox.notifyOnSpawn, {
       isChecked: notifyOnSpawn,
     });
   }
+
   let selectedWhitelistIndex = -1;
   let selectedBlacklistIndex = -1;
 
+  function setSelectedGuestIndex(
+    list: "whitelist" | "blacklist",
+    value: number = -1,
+  ): void {
+    if (list === "whitelist") {
+      selectedWhitelistIndex = value;
+      selectedBlacklistIndex = -1;
+
+      updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
+        selectedCell:
+          selectedWhitelistIndex !== -1
+            ? {
+                row: selectedWhitelistIndex,
+                column: 0,
+              }
+            : null,
+      });
+
+      updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
+        selectedCell: null,
+      });
+    } else {
+      selectedBlacklistIndex = value;
+      selectedWhitelistIndex = -1;
+
+      updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
+        selectedCell:
+          selectedBlacklistIndex !== -1
+            ? {
+                row: selectedBlacklistIndex,
+                column: 0,
+              }
+            : null,
+      });
+
+      updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
+        selectedCell: null,
+      });
+    }
+
+    refreshWhitelistNameButtonState();
+    refreshBlacklistNameButtonState();
+    refreshForceSpawnButtonState();
+  }
+
   let blacklist = getBlacklist();
+  function setBlacklist(value?: SecretGuest[]) {
+    saveBlacklistNames(value);
+    blacklist = getBlacklist();
+    whitelist = getWhitelist();
+  }
+
   let whitelist = getWhitelist();
+  // #endregion
 
   const existingMainWindow = getMainWindow();
 
@@ -120,7 +161,6 @@ export function openSecretGuestsWindow(): void {
 
   let guestGenerationSubscription: IDisposable | null = null;
   let backgroundRefreshSubscription: IDisposable | null = null;
-  let backgroundRefreshTicks = 0;
 
   const mainWindow = ui.openWindow({
     classification: WINDOW_CLASSIFICATIONS.mainMenuWindow,
@@ -148,6 +188,7 @@ export function openSecretGuestsWindow(): void {
 
   // refresh menu UI every second
   // will update UI if a guest happens to leave, die, or otherwise be removed from the park
+  let backgroundRefreshTicks = 0;
   backgroundRefreshSubscription = context.subscribe("interval.tick", () => {
     backgroundRefreshTicks++;
 
@@ -156,13 +197,16 @@ export function openSecretGuestsWindow(): void {
     }
 
     backgroundRefreshTicks = 0;
-    // refresh ui elements that can change without user input, as noted above. Remove this comment once implemented
-    // or just change refreshUiFromGameState btw
-    // overall this should only refresh name description if something is selected and if Force Spawn is possible
-    //refreshVolatileGameState();
     refreshUiFromGameState();
   });
 
+  /**
+   * "Force Spawn" should be disabled when:
+   * 1. No guest name is selected
+   * 2. All guests on the map are named that already
+   *
+   * Should be refreshed any time a guest is renamed and on an interval to detect if a guest has left the park, died, or otherwise been removed from the park.
+   */
   function refreshForceSpawnButtonState(): void {
     let disable = true;
     const selected = getSelectedGuest();
@@ -175,32 +219,6 @@ export function openSecretGuestsWindow(): void {
     }
 
     updateWidgetProperties(mainWindow, WIDGET_NAMES.button.forceSpawn, {
-      isDisabled: disable,
-    });
-  }
-
-  function refreshBlacklistNameButtonState(): void {
-    let disable = true;
-    const selected = getSelectedGuest();
-
-    if (selected !== null) {
-      disable = getWhitelist().length === 0 || selectedWhitelistIndex === -1;
-    }
-
-    updateWidgetProperties(mainWindow, WIDGET_NAMES.button.blacklistName, {
-      isDisabled: disable,
-    });
-  }
-
-  function refreshWhitelistNameButtonState(): void {
-    let disable = true;
-    const selected = getSelectedGuest();
-
-    if (selected !== null) {
-      disable = getBlacklist().length === 0 || selectedBlacklistIndex === -1;
-    }
-
-    updateWidgetProperties(mainWindow, WIDGET_NAMES.button.whitelistName, {
       isDisabled: disable,
     });
   }
@@ -221,21 +239,11 @@ export function openSecretGuestsWindow(): void {
   // refresh force spawn button/guest description count text
   // can be called independent from user actions, like on interval
   function refreshUiFromGameState(): void {
-    updateWidgetProperties(mainWindow, WIDGET_NAMES.label.guestDescription, {
-      text: getSelectedDescription(getSelectedGuest()),
-    });
-
-    refreshBlacklistNameButtonState();
-    refreshWhitelistNameButtonState();
+    setSelectedGuestDescription(getSelectedGuest());
     refreshForceSpawnButtonState();
-    refreshResetSettingsButtonState();
   }
 
-  function refreshListWidgets(): void {
-    // maybe see about not causing side effects in a function?
-    blacklist = getBlacklist();
-    whitelist = getWhitelist();
-
+  function updateListWidgets(): void {
     updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
       items: getGuestNames(whitelist),
     });
@@ -244,45 +252,58 @@ export function openSecretGuestsWindow(): void {
     });
   }
 
+  /**
+   * "Blacklist >"" button should be disabled when:
+   * 1. No whitelisted guest name is selected
+   *
+   * Should be refreshed any time the whitelist is updated.
+   */
+  function refreshBlacklistNameButtonState(): void {
+    let disable = true;
+    const selected = getSelectedGuest();
+
+    if (selected !== null) {
+      disable = whitelist.length === 0 || selectedWhitelistIndex === -1;
+    }
+
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.button.moveToBlacklist, {
+      isDisabled: disable,
+    });
+  }
+
+  /**
+   * "< Allow" button should be disabled when:
+   * 1. No blacklisted guest name is selected
+   *
+   * Should be refreshed any time the blacklist is updated
+   */
+  function refreshWhitelistNameButtonState(): void {
+    let disable = true;
+    const selected = getSelectedGuest();
+
+    if (selected !== null) {
+      disable = blacklist.length === 0 || selectedBlacklistIndex === -1;
+    }
+
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.button.moveToWhitelist, {
+      isDisabled: disable,
+    });
+  }
+
   function refreshListsAfterNameMoved(
     listToReselect: "whitelist" | "blacklist",
-    previousIndex: number,
   ): void {
-    refreshListWidgets();
-
-    updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
-      selectedCell: null,
-    });
-
-    updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
-      selectedCell: null,
-    });
-
-    selectedWhitelistIndex = -1;
-    selectedBlacklistIndex = -1;
-
+    updateListWidgets();
     if (listToReselect === "whitelist") {
-      selectedWhitelistIndex = nextSelectIndexForList(previousIndex, whitelist);
-
-      if (selectedWhitelistIndex !== -1) {
-        updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
-          selectedCell: {
-            row: selectedWhitelistIndex,
-            column: 0,
-          },
-        });
-      }
+      setSelectedGuestIndex(
+        "whitelist",
+        nextSelectIndexForList(selectedWhitelistIndex, whitelist),
+      );
     } else {
-      selectedBlacklistIndex = nextSelectIndexForList(previousIndex, blacklist);
-
-      if (selectedBlacklistIndex !== -1) {
-        updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
-          selectedCell: {
-            row: selectedBlacklistIndex,
-            column: 0,
-          },
-        });
-      }
+      setSelectedGuestIndex(
+        "blacklist",
+        nextSelectIndexForList(selectedBlacklistIndex, blacklist),
+      );
     }
 
     refreshUiFromGameState();
@@ -371,30 +392,22 @@ export function openSecretGuestsWindow(): void {
     return null;
   }
 
-  // possibly use in areSettingsDefault? possibly remove?
-  // function haveSameItems<T>(a: T[], b: readonly T[]): boolean {
-  //   return a.length === b.length && a.every((value) => b.indexOf(value) !== -1);
-  // }
-
-  // should I be accessing localStorage here? Or my own variables that represent game state?
-  // need to double check all game state changes and whatnot
   function areSettingsDefault(): boolean {
-    const curBlacklist = getBlacklistNames();
     // only need to check blacklist because whitelist is built from that + custom names
     // maybe could make there be a check for only non-custom secret guests so it keeps them in the blacklist?
     // maybe would need a customGuestsBlacklist?
     // Or just extract the custom guests from the blacklist before resetting and save them into the blacklist?
     return (
-      curBlacklist.length === DEFAULT_VALUES.blacklistGuestsNames.length &&
-      curBlacklist.every((name) =>
+      blacklist.length === DEFAULT_VALUES.blacklistGuestsNames.length &&
+      blacklist.every((guest) =>
         DEFAULT_VALUES.blacklistGuestsNames.some(
-          (defaultName) => name === defaultName,
+          (defaultName) => guest.name === defaultName,
         ),
       ) &&
-      getNotifyOnSpawn() === DEFAULT_VALUES.notifyOnSpawn &&
-      getSpawnChance() === DEFAULT_VALUES.spawnChance &&
-      getSpawnCountPerName() === DEFAULT_VALUES.spawnCountPerName &&
-      getSpawnCountTotal() === getAllGuests().length
+      notifyOnSpawn === DEFAULT_VALUES.notifyOnSpawn &&
+      spawnChance === DEFAULT_VALUES.spawnChance &&
+      spawnCountPerName === DEFAULT_VALUES.spawnCountPerName &&
+      spawnCountTotal === getAllGuests().length
     );
   }
 
@@ -403,9 +416,7 @@ export function openSecretGuestsWindow(): void {
     setSpawnCountPerName();
     setSpawnCountTotal();
     setNotifyOnSpawn();
-
-    //CHANGE THIS TO A PROPER SETBLACKLIST????
-    saveBlacklistNames();
+    setBlacklist();
   }
 
   function getWidgets(): WidgetDesc[] {
@@ -422,7 +433,7 @@ export function openSecretGuestsWindow(): void {
         tooltip: "Open the Custom Guests Manager",
         onClick: () => {
           openCustomGuestsWindow(() => {
-            refreshListWidgets();
+            updateListWidgets();
             refreshUiFromGameState();
           });
         },
@@ -442,14 +453,7 @@ export function openSecretGuestsWindow(): void {
         columns: [{ header: "Name", width: 180 }],
         items: getGuestNames(whitelist),
         onClick: (index) => {
-          selectedWhitelistIndex = index;
-          selectedBlacklistIndex = -1;
-
-          updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
-            selectedCell: null,
-          });
-          // refreshBlacklistNameButtonState();
-          // refreshWhitelistNameButtonState();
+          setSelectedGuestIndex("whitelist", index);
           refreshUiFromGameState();
         },
       },
@@ -478,14 +482,7 @@ export function openSecretGuestsWindow(): void {
         columns: [{ header: "Name", width: 180 }],
         items: getGuestNames(blacklist),
         onClick: (index) => {
-          selectedBlacklistIndex = index;
-          selectedWhitelistIndex = -1;
-
-          updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
-            selectedCell: null,
-          });
-          // refreshBlacklistNameButtonState();
-          // refreshWhitelistNameButtonState();
+          setSelectedGuestIndex("blacklist", index);
           refreshUiFromGameState();
         },
       },
@@ -502,7 +499,7 @@ export function openSecretGuestsWindow(): void {
       // move to blacklist button
       {
         type: "button",
-        name: WIDGET_NAMES.button.blacklistName,
+        name: WIDGET_NAMES.button.moveToBlacklist,
         x: 50,
         y: 232,
         width: 110,
@@ -510,26 +507,20 @@ export function openSecretGuestsWindow(): void {
         text: "Blacklist >",
         isDisabled: true,
         onClick: () => {
-          if (
-            selectedWhitelistIndex < 0 ||
-            selectedWhitelistIndex >= whitelist.length
-          ) {
+          const selectedGuest = getSelectedGuest();
+          if (selectedGuest === null) {
             return;
           }
 
-          const guest = whitelist[selectedWhitelistIndex];
-          const nextWhitelistIndex = selectedWhitelistIndex;
-
-          saveBlacklistNames(blacklist.concat([guest]));
-          refreshListsAfterNameMoved("whitelist", nextWhitelistIndex);
-          //refreshBlacklistNameButtonState();
-          refreshUiFromGameState();
+          setBlacklist(blacklist.concat([selectedGuest]));
+          refreshListsAfterNameMoved("whitelist");
+          refreshResetSettingsButtonState();
         },
       },
       // move to whitelist button
       {
         type: "button",
-        name: WIDGET_NAMES.button.whitelistName,
+        name: WIDGET_NAMES.button.moveToWhitelist,
         x: 260,
         y: 232,
         width: 110,
@@ -537,23 +528,17 @@ export function openSecretGuestsWindow(): void {
         text: "< Allow",
         isDisabled: true,
         onClick: () => {
-          if (
-            selectedBlacklistIndex < 0 ||
-            selectedBlacklistIndex >= blacklist.length
-          ) {
+          const selectedGuest = getSelectedGuest();
+          if (selectedGuest === null) {
             return;
           }
 
-          const guest = blacklist[selectedBlacklistIndex];
-          const nextBlacklistIndex = selectedBlacklistIndex;
-          const newBlacklist = blacklist.filter(
-            (blacklistedGuest) => blacklistedGuest.name !== guest.name,
+          setBlacklist(
+            blacklist.filter((guest) => guest.name !== selectedGuest.name),
           );
 
-          saveBlacklistNames(newBlacklist);
-          refreshListsAfterNameMoved("blacklist", nextBlacklistIndex);
-          //refreshWhitelistNameButtonState();
-          refreshUiFromGameState();
+          refreshListsAfterNameMoved("blacklist");
+          refreshResetSettingsButtonState();
         },
       },
       // spawn chance label
@@ -738,7 +723,7 @@ export function openSecretGuestsWindow(): void {
           "Whether to receive a notification on secret guest spawn or not",
         isChecked: notifyOnSpawn,
         onChange: (isChecked) => {
-          saveNotifyOnSpawn(isChecked);
+          setNotifyOnSpawn(isChecked);
           refreshResetSettingsButtonState();
         },
       },
@@ -776,46 +761,11 @@ export function openSecretGuestsWindow(): void {
         onClick: () => {
           showResetConfirmationWindow(() => {
             resetSettings();
-            refreshListWidgets();
-
-            // turn setting selectedCell into its own function in windowUtilities
-            // or maybe just setting null?
-            // or overload them
-            // updateSelectedListItem(window, etc)
-            // maybe turn several common updates into wrapper functions
-            // updateWidgetText(window, WIDGET_NAMES.listview.<something>, text)
-            // could possibly do a union hardcode string property like whitelist | blacklist | customGuests for widget name too
-            // that corresponds to the constants
-            updateWidgetProperties(
-              mainWindow,
-              WIDGET_NAMES.listview.whitelist,
-              {
-                selectedCell: null,
-              },
-            );
-            updateWidgetProperties(
-              mainWindow,
-              WIDGET_NAMES.listview.blacklist,
-              {
-                selectedCell: null,
-              },
-            );
-
-            selectedWhitelistIndex = -1;
-            selectedBlacklistIndex = -1;
-
-            updateWidgetProperties(
-              mainWindow,
-              WIDGET_NAMES.label.guestDescription,
-              {
-                text: getSelectedDescription(null),
-              },
-            );
-
-            // refreshWhitelistNameButtonState();
-            // refreshBlacklistNameButtonState();
+            // resets both selectedIndices to -1
+            setSelectedGuestIndex("whitelist");
+            updateListWidgets();
+            refreshResetSettingsButtonState();
             refreshUiFromGameState();
-            //refreshForceSpawnButtonState();
           });
         },
       },

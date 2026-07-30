@@ -18,8 +18,8 @@ export const WIDGET_NAMES = {
   button: {
     forceSpawn: "force-spawn-button",
     resetSettings: "reset-settings-button",
-    blacklistName: "blacklist-guest-button",
-    whitelistName: "whitelist-guest-button",
+    moveToBlacklist: "move-guest-to-blacklist-button",
+    moveToWhitelist: "move-guest-to-whitelist-button",
     openCustomGuestsManager: "open-custom-guests-manager-button",
   },
   checkbox: {
@@ -62,3 +62,5 @@ export const DEFAULT_VALUES = {
     },
   ],
 } as const;
+
+export const BACKGROUND_UI_REFRESH_TICKS = 40;
