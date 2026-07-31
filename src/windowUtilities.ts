@@ -75,7 +75,7 @@ export function getResetSettingsConfirmationWindow(): Window | null {
   return ui.getWindow(WINDOW_CLASSIFICATIONS.confirmResetSettingsWindow);
 }
 
-export function showCenteredConfirmationWindow(
+export function showConfirmationWindow(
   parentWindow: Window | null,
   classification: string,
   title: string,

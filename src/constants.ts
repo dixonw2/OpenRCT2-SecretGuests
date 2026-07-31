@@ -20,6 +20,7 @@ export const WIDGET_NAMES = {
     resetSettings: "reset-settings-button",
     moveToBlacklist: "move-guest-to-blacklist-button",
     moveToWhitelist: "move-guest-to-whitelist-button",
+    clearSelectedGuest: "clear-selected-guest-button",
     openCustomGuestsManager: "open-custom-guests-manager-button",
   },
   checkbox: {

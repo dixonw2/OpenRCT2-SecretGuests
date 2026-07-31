@@ -20,33 +20,33 @@ interface GuestFlagOption {
 }
 
 const GUEST_FLAG_OPTIONS: GuestFlagOption[] = [
-  { flag: "leavingPark", label: "Leaves Park" },
-  { flag: "slowWalk", label: "Slow Walk" },
-  { flag: "tracking", label: "Tracking" },
+  { flag: "leavingPark", label: "Leaves park" },
+  { flag: "slowWalk", label: "Slowly walks" },
+  { flag: "tracking", label: "Track guest's actions" },
   { flag: "waving", label: "Waves" },
-  { flag: "hasPaidForParkEntry", label: "Paid entry" },
-  { flag: "photo", label: "Photograph" },
-  { flag: "painting", label: "Paint" },
-  { flag: "wow", label: "Wow!" },
-  { flag: "litter", label: "Litter" },
-  { flag: "lost", label: "Lost" },
-  { flag: "hunger", label: "Hunger" },
-  { flag: "toilet", label: "Toilet" },
-  { flag: "crowded", label: "Crowded" },
-  { flag: "happiness", label: "Decreasing Happiness" },
-  { flag: "nausea", label: "Increasing Nausea" },
-  { flag: "purple", label: "Purple" },
-  { flag: "pizza", label: "Pizza" },
-  { flag: "explode", label: "Explode" },
-  { flag: "rideShouldBeMarkedAsFavourite", label: "Favourite ride" },
-  { flag: "parkEntranceChosen", label: "Entrance chosen" },
-  { flag: "contagious", label: "Stinky" },
-  { flag: "joy", label: "Joy" },
-  { flag: "angry", label: "Angry" },
-  { flag: "iceCream", label: "Ice Cream" },
-  { flag: "hereWeAre", label: "Here we are..." },
-  { flag: "positionFrozen", label: "Position freeze" },
-  { flag: "animationFrozen", label: "Animation freeze" },
+  //{ flag: "hasPaidForParkEntry", label: "Paid entry" },
+  { flag: "photo", label: "Photographs" },
+  { flag: "painting", label: "Paints" },
+  { flag: "wow", label: "Thinks \u201CWow!\u201D" },
+  { flag: "litter", label: "Litters" },
+  { flag: "lost", label: "Thinks \u201C I'm lost!\u201D" },
+  { flag: "hunger", label: "Hunger increases" },
+  { flag: "toilet", label: "Toilet increases" },
+  { flag: "crowded", label: "Random thoughts" },
+  { flag: "happiness", label: "Happiness decreases" },
+  { flag: "nausea", label: "Nausea increases" },
+  { flag: "purple", label: "Gifts purple shirts" },
+  { flag: "pizza", label: "Gifts pizza" },
+  { flag: "explode", label: "Explodes" },
+  //{ flag: "rideShouldBeMarkedAsFavourite", label: "Favorite ride" },
+  //{ flag: "parkEntranceChosen", label: "Entrance chosen" },
+  { flag: "contagious", label: "Makes nearby guests sick" },
+  { flag: "joy", label: "Jumps" },
+  { flag: "angry", label: "Vandalizes" },
+  { flag: "iceCream", label: "Gifts ice cream" },
+  { flag: "hereWeAre", label: "Thinks \u201CHere we are...\u201D" },
+  //{ flag: "positionFrozen", label: "Position freeze" },
+  //{ flag: "animationFrozen", label: "Animation freeze" },
 ];
 
 function getFlagWidgetName(flag: PeepFlags): string {
@@ -119,7 +119,7 @@ export function openCustomGuestsWindow(
   onCustomGuestsChanged: () => void,
 ): void {
   const windowOpen = ui.getWindow(CUSTOM_GUESTS_WINDOW_CLASSIFICATION);
-  if (windowOpen !== null && windowOpen !== undefined) {
+  if (windowOpen !== null) {
     windowOpen.bringToFront();
     return;
   }
@@ -131,7 +131,7 @@ export function openCustomGuestsWindow(
   const customGuestsWindow = ui.openWindow({
     classification: CUSTOM_GUESTS_WINDOW_CLASSIFICATION,
     title: "Custom Guests Manager",
-    width: 700,
+    width: 600,
     height: 360,
     widgets: getWidgets(),
   });
@@ -296,15 +296,16 @@ export function openCustomGuestsWindow(
 
     for (let i = 0; i < GUEST_FLAG_OPTIONS.length; i++) {
       const option = GUEST_FLAG_OPTIONS[i];
-      const column = Math.floor(i / 9);
-      const row = i % 9;
+      const column = Math.floor(i / 11);
+      const row = i % 11;
 
       widgets.push({
         type: "checkbox",
         name: getFlagWidgetName(option.flag),
         x: 260 + column * 145,
         y: 18 + row * 17,
-        width: 140,
+        width: 200,
+        //width: 140,
         height: 12,
         text: option.label,
         isChecked: false,

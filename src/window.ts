@@ -22,7 +22,7 @@ import {
   getMainWindow,
   updateWidgetProperties,
   nextSelectIndexForList,
-  showCenteredConfirmationWindow,
+  showConfirmationWindow,
   formatNumberToDecimal,
 } from "./windowUtilities";
 import {
@@ -147,6 +147,7 @@ export function openSecretGuestsWindow(): void {
 
     refreshWhitelistNameButtonState();
     refreshBlacklistNameButtonState();
+    refreshClearSelectedGuestButtonState();
     refreshForceSpawnButtonState();
   }
 
@@ -173,7 +174,7 @@ export function openSecretGuestsWindow(): void {
   const mainWindow = ui.openWindow({
     classification: WINDOW_CLASSIFICATIONS.mainMenuWindow,
     title: "Secret Guests",
-    width: 420,
+    width: 500,
     height: 320,
     widgets: getWidgets(),
     onClose: () => {
@@ -216,18 +217,16 @@ export function openSecretGuestsWindow(): void {
    * Should be refreshed any time a guest is renamed and on an interval to detect if a guest has left the park, died, or otherwise been removed from the park.
    */
   function refreshForceSpawnButtonState(): void {
-    let disable = true;
-    const selected = getSelectedGuest();
+    const selectedGuest = getSelectedGuest();
 
-    if (selected !== null) {
-      // if every guest on the map has the selected name, cannot force spawn anymore
-      disable = map
+    const canForceSpawn =
+      selectedGuest !== null &&
+      map
         .getAllEntities("guest")
-        .every((guest) => guest.name === selected.name);
-    }
+        .some((guest) => guest.name !== selectedGuest.name);
 
     updateWidgetProperties(mainWindow, WIDGET_NAMES.button.forceSpawn, {
-      isDisabled: disable,
+      isDisabled: !canForceSpawn,
     });
   }
 
@@ -261,7 +260,7 @@ export function openSecretGuestsWindow(): void {
   }
 
   /**
-   * "Blacklist >"" button should be disabled when:
+   * ">" button should be disabled when:
    * 1. No whitelisted guest name is selected
    *
    * Should be refreshed any time the whitelist is updated.
@@ -275,7 +274,7 @@ export function openSecretGuestsWindow(): void {
   }
 
   /**
-   * "< Allow" button should be disabled when:
+   * "<" button should be disabled when:
    * 1. No blacklisted guest name is selected
    *
    * Should be refreshed any time the blacklist is updated
@@ -285,6 +284,12 @@ export function openSecretGuestsWindow(): void {
       selectedBlacklistIndex === -1 || getSelectedGuest() === null;
     updateWidgetProperties(mainWindow, WIDGET_NAMES.button.moveToWhitelist, {
       isDisabled: disable,
+    });
+  }
+
+  function refreshClearSelectedGuestButtonState(): void {
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.button.clearSelectedGuest, {
+      isDisabled: getSelectedGuest() === null,
     });
   }
 
@@ -395,13 +400,13 @@ export function openSecretGuestsWindow(): void {
         name: WIDGET_NAMES.listview.whitelist,
         x: 10,
         y: 35,
-        width: 190,
+        width: 205,
         height: 175,
         scrollbars: "vertical",
         isStriped: true,
         showColumnHeaders: false,
         canSelect: true,
-        columns: [{ header: "Name", width: 180 }],
+        columns: [{ header: "Name", width: 195 }],
         items: getGuestNames(whitelist),
         onClick: (index) => {
           setSelectedGuestIndex("whitelist", index);
@@ -411,9 +416,9 @@ export function openSecretGuestsWindow(): void {
       // blacklist label
       {
         type: "label",
-        x: 220,
+        x: 285,
         y: 18,
-        width: 190,
+        width: 90,
         height: 12,
         text: "Blacklisted",
         tooltip: "Guests that will not spawn naturally",
@@ -422,40 +427,30 @@ export function openSecretGuestsWindow(): void {
       {
         type: "listview",
         name: WIDGET_NAMES.listview.blacklist,
-        x: 220,
+        x: 285,
         y: 35,
-        width: 190,
+        width: 205,
         height: 175,
         scrollbars: "vertical",
         isStriped: true,
         showColumnHeaders: false,
         canSelect: true,
-        columns: [{ header: "Name", width: 180 }],
+        columns: [{ header: "Name", width: 195 }],
         items: getGuestNames(blacklist),
         onClick: (index) => {
           setSelectedGuestIndex("blacklist", index);
           refreshUiFromGameState();
         },
       },
-      // guest description label
-      {
-        type: "label",
-        name: WIDGET_NAMES.label.guestDescription,
-        x: 10,
-        y: 215,
-        width: 400,
-        height: 12,
-        text: "",
-      },
       // move to blacklist button
       {
         type: "button",
         name: WIDGET_NAMES.button.moveToBlacklist,
-        x: 50,
-        y: 232,
-        width: 110,
+        x: 225,
+        y: 95,
+        width: 50,
         height: 20,
-        text: "Blacklist >",
+        text: ">",
         isDisabled: true,
         onClick: () => {
           const selectedGuest = getSelectedGuest();
@@ -472,11 +467,11 @@ export function openSecretGuestsWindow(): void {
       {
         type: "button",
         name: WIDGET_NAMES.button.moveToWhitelist,
-        x: 260,
-        y: 232,
-        width: 110,
+        x: 225,
+        y: 120,
+        width: 50,
         height: 20,
-        text: "< Allow",
+        text: "<",
         isDisabled: true,
         onClick: () => {
           const selectedGuest = getSelectedGuest();
@@ -492,13 +487,39 @@ export function openSecretGuestsWindow(): void {
           refreshResetSettingsButtonState();
         },
       },
+      // clear selection button
+      {
+        type: "button",
+        name: WIDGET_NAMES.button.clearSelectedGuest,
+        x: 225,
+        y: 145,
+        width: 50,
+        height: 20,
+        text: "Clear",
+        tooltip: "Clear selected guest",
+        isDisabled: true,
+        onClick: () => {
+          setSelectedGuestIndex();
+          refreshUiFromGameState();
+        },
+      },
+      // guest description label
+      {
+        type: "label",
+        name: WIDGET_NAMES.label.guestDescription,
+        x: 10,
+        y: 215,
+        width: 480,
+        height: 12,
+        text: "",
+      },
       // spawn chance label
       {
         type: "label",
         name: WIDGET_NAMES.label.spawnChance,
         x: 10,
-        y: 260,
-        width: 100,
+        y: 257,
+        width: 105,
         height: 12,
         text: "Chance:",
         tooltip: "Chance to spawn a whitelisted guest",
@@ -507,12 +528,11 @@ export function openSecretGuestsWindow(): void {
       {
         type: "spinner",
         name: WIDGET_NAMES.spinner.spawnChance,
-        x: 110,
-        y: 260,
-        width: 68,
+        x: 120,
+        y: 257,
+        width: 70,
         height: 12,
         text: getSpawnChanceSpinnerText(),
-        tooltip: "[min 0 -- max 100]",
         onDecrement: () => {
           updateSpawnChance(spawnChance - getSpawnChanceDecrementStep());
         },
@@ -542,8 +562,8 @@ export function openSecretGuestsWindow(): void {
         type: "label",
         name: WIDGET_NAMES.label.spawnCountPerName,
         x: 10,
-        y: 275,
-        width: 100,
+        y: 279,
+        width: 105,
         height: 12,
         text: "Max spawn/name:",
         tooltip: "How many guests can have the same secret name",
@@ -552,12 +572,11 @@ export function openSecretGuestsWindow(): void {
       {
         type: "spinner",
         name: WIDGET_NAMES.spinner.spawnCountPerName,
-        x: 110,
-        y: 275,
-        width: 68,
+        x: 120,
+        y: 279,
+        width: 70,
         height: 12,
         text: spawnCountPerName.toString(),
-        tooltip: `[min 0 -- max ${DEFAULT_VALUES.spawnCountPerNameMax}]`,
         onDecrement: () => {
           setSpawnCountPerName(Math.max(0, spawnCountPerName - 1));
           refreshResetSettingsButtonState();
@@ -603,8 +622,8 @@ export function openSecretGuestsWindow(): void {
         type: "label",
         name: WIDGET_NAMES.label.spawnCountTotal,
         x: 10,
-        y: 290,
-        width: 100,
+        y: 299,
+        width: 105,
         height: 12,
         text: "Max total spawn:",
         tooltip: "How many guests can have a secret name",
@@ -613,12 +632,11 @@ export function openSecretGuestsWindow(): void {
       {
         type: "spinner",
         name: WIDGET_NAMES.spinner.spawnCountTotal,
-        x: 110,
-        y: 290,
-        width: 68,
+        x: 120,
+        y: 299,
+        width: 70,
         height: 12,
         text: spawnCountTotal.toString(),
-        tooltip: `[min 0 -- max ${DEFAULT_VALUES.spawnCountTotalMax}]`,
         onDecrement: () => {
           setSpawnCountTotal(Math.max(0, spawnCountTotal - 1));
           refreshResetSettingsButtonState();
@@ -660,9 +678,9 @@ export function openSecretGuestsWindow(): void {
       {
         type: "checkbox",
         name: WIDGET_NAMES.checkbox.notifyOnSpawn,
-        x: 260,
+        x: 327,
         y: 257,
-        width: 130,
+        width: 120,
         height: 12,
         text: "Notify on spawn",
         tooltip:
@@ -677,9 +695,9 @@ export function openSecretGuestsWindow(): void {
       {
         type: "button",
         name: WIDGET_NAMES.button.forceSpawn,
-        x: 260,
-        y: 271,
-        width: 110,
+        x: 327,
+        y: 275,
+        width: 120,
         height: 20,
         text: "Force Spawn",
         tooltip: "Force spawns the selected guest",
@@ -697,15 +715,15 @@ export function openSecretGuestsWindow(): void {
       {
         type: "button",
         name: WIDGET_NAMES.button.resetSettings,
-        x: 260,
+        x: 327,
         y: 295,
-        width: 110,
+        width: 120,
         height: 20,
         isDisabled: areSettingsDefault(),
         text: "Reset Settings",
         tooltip: "Resets settings to default (will not erase custom guests)",
         onClick: () => {
-          showCenteredConfirmationWindow(
+          showConfirmationWindow(
             mainWindow,
             WINDOW_CLASSIFICATIONS.confirmResetSettingsWindow,
             "Confirm Reset Settings",
