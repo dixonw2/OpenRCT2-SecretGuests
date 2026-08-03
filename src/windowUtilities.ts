@@ -31,6 +31,8 @@ export function updateWidgetProperties(
     items,
     selectedCell,
     text,
+    x,
+    y,
   }: {
     isDisabled?: boolean;
     isVisible?: boolean;
@@ -38,6 +40,8 @@ export function updateWidgetProperties(
     items?: ListViewItem[];
     selectedCell?: RowColumn | null;
     text?: string;
+    x?: number;
+    y?: number;
   },
 ): void {
   const widget = window.findWidget<Widget>(widgetName);
@@ -65,14 +69,18 @@ export function updateWidgetProperties(
   if (text !== undefined && isTextWidget(widget)) {
     widget.text = text;
   }
+
+  if (x !== undefined) {
+    widget.x = x;
+  }
+
+  if (y !== undefined) {
+    widget.y = y;
+  }
 }
 
 export function getMainWindow(): Window | null {
   return ui.getWindow(WINDOW_CLASSIFICATIONS.mainMenuWindow);
-}
-
-export function getResetSettingsConfirmationWindow(): Window | null {
-  return ui.getWindow(WINDOW_CLASSIFICATIONS.confirmResetSettingsWindow);
 }
 
 export function showConfirmationWindow(

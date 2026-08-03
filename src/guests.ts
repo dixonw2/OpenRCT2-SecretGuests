@@ -4,73 +4,18 @@ export interface SecretGuest {
   flags?: PeepFlags[];
 }
 
-/*
-    Custom guest example (in SECRET_GUESTS):
-    {
-        name: "Test",
-        description: "Splashes everyone with a purple paint balloon",
-        flags: ["purple"],
-    },
+export interface SecretGuestCustomSpawnSettings {
+  name: string;
+  enableCustomSpawnSettings: boolean;
+  customSpawnWeight?: number;
+  customSpawnCount?: number;
+}
 
-    Flags list (untested)
-    "leavingPark"
-    "slowWalk"
-    "tracking"
-    "waving"
-    "hasPaidForParkEntry"
-    "photo"
-    "painting"
-    "wow"
-    "litter"
-    "lost"
-    "hunger"
-    "toilet"
-    "crowded"
-    "happiness"
-    "nausea"
-    "purple"
-    "pizza"
-    "explode"
-    "rideShouldBeMarkedAsFavourite"
-    "parkEntranceChosen"
-    "contagious"
-    "joy"
-    "angry"
-    "iceCream"
-    "hereWeAre"
-    "positionFrozen"
-    "animationFrozen"
-*/
-
-export const GUEST_FLAGS: PeepFlags[] = [
-  "leavingPark",
-  "slowWalk",
-  "tracking",
-  "waving",
-  "hasPaidForParkEntry", // Remove?
-  "photo",
-  "painting",
-  "wow",
-  "litter",
-  "lost",
-  "hunger",
-  "toilet",
-  "crowded", // describe as random thoughts? Without any other plugins, still has random thoughts. Try fresh install no plugins, different versions?
-  "happiness",
-  "nausea",
-  "purple",
-  "pizza",
-  "explode",
-  "rideShouldBeMarkedAsFavourite", // Remove?
-  "parkEntranceChosen", // Remove?
-  "contagious",
-  "joy",
-  "angry",
-  "iceCream",
-  "hereWeAre",
-  "positionFrozen", // Possibly keep?
-  "animationFrozen", // Possibly keep?
-];
+export interface SecretGuestWithCustomSpawnSettings extends SecretGuest {
+  enableCustomSpawnSettings?: boolean;
+  customSpawnWeight?: number;
+  customSpawnCount?: number;
+}
 
 export const SECRET_GUESTS: SecretGuest[] = [
   {
@@ -157,7 +102,6 @@ export const SECRET_GUESTS: SecretGuest[] = [
     // \u201C explicitly uses a left double quotation mark, \u201D uses a right
     // Using " instead uses solely a right
     name: "Corina Massoura",
-    //description: "Thinks \u201CIt's too crowded here\u201D",
     description: "Has random thoughts",
   },
   {

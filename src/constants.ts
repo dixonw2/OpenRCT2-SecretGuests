@@ -6,13 +6,17 @@ export const WINDOW_CLASSIFICATIONS = {
 export const WIDGET_NAMES = {
   label: {
     spawnChance: "spawn-chance-label",
+    customSpawnChance: "custom-spawn-chance-label",
     spawnCountPerName: "spawn-count-per-name-label",
+    customSpawnCountForName: "custom-spawn-count-for-name-label",
     spawnCountTotal: "spawn-count-total-label",
     guestDescription: "guest-description-label",
   },
   spinner: {
     spawnChance: "spawn-chance-spinner",
+    customSpawnChance: "custom-spawn-chance-spinner",
     spawnCountPerName: "spawn-count-per-name-spinner",
+    customSpawnCountForName: "custom-spawn-count-for-name-spinner",
     spawnCountTotal: "spawn-count-total-spinner",
   },
   button: {
@@ -25,6 +29,7 @@ export const WIDGET_NAMES = {
   },
   checkbox: {
     notifyOnSpawn: "notify-on-spawn-checkbox",
+    useCustomGuestSpawnSettings: "use-custom-guest-spawn-settings-checkbox",
   },
   listview: {
     whitelist: "whitelist-listview",
@@ -39,10 +44,13 @@ export const STORAGE_KEYS = {
   spawnCountTotal: "SecretGuests.spawnCountTotal",
   notifyOnSpawn: "SecretGuests.notifyOnSpawn",
   customGuests: "SecretGuests.customGuests",
+  guestsCustomSpawnSettings: "SecretGuests.guestsCustomSpawnSettings",
 } as const;
 
 export const DEFAULT_VALUES = {
   spawnChance: 0.5,
+  spawnWeight: 1,
+  spawnWeightMax: 999,
   spawnCountPerName: 1,
   spawnCountPerNameMax: 999,
   spawnCountTotalMax: 999,

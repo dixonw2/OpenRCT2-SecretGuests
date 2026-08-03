@@ -1,4 +1,4 @@
-import { SecretGuest } from "./guests";
+import { SecretGuest, SecretGuestWithCustomSpawnSettings } from "./guests";
 import {
   getBlacklist,
   getWhitelist,
@@ -15,6 +15,9 @@ import {
   saveSpawnCountPerName,
   saveSpawnCountTotal,
   saveNotifyOnSpawn,
+  saveCustomSpawnSettingsForGuest,
+  saveGuestsCustomSpawnSettings,
+  getGuestsCustomSpawnSettings,
 } from "./storage";
 import { getCurrentSecretCount, forceSpawnGuest } from "./spawning";
 import { openCustomGuestsWindow } from "./customGuestsWindow";
@@ -148,6 +151,7 @@ export function openSecretGuestsWindow(): void {
     refreshWhitelistNameButtonState();
     refreshBlacklistNameButtonState();
     refreshClearSelectedGuestButtonState();
+    refreshGuestCustomSettingsWidgets();
     refreshForceSpawnButtonState();
   }
 
@@ -247,6 +251,7 @@ export function openSecretGuestsWindow(): void {
   // can be called independent from user actions, like on interval
   function refreshUiFromGameState(): void {
     setSelectedGuestDescription(getSelectedGuest());
+    //refreshGuestCustomSettingsWidgets();
     refreshForceSpawnButtonState();
   }
 
@@ -257,6 +262,12 @@ export function openSecretGuestsWindow(): void {
     updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
       items: getGuestNames(blacklist),
     });
+  }
+
+  function reloadListsFromStorage(): void {
+    blacklist = getBlacklist();
+    whitelist = getWhitelist();
+    updateListWidgets();
   }
 
   /**
@@ -327,6 +338,13 @@ export function openSecretGuestsWindow(): void {
     return formatNumberToDecimal(normalized, decimals);
   }
 
+  function normalizeSpawnWeight(weight: number): number {
+    return Math.max(
+      0,
+      Math.min(DEFAULT_VALUES.spawnWeightMax, Math.floor(weight)),
+    );
+  }
+
   function updateSpawnChance(chance: number): void {
     setSpawnChance(normalizeSpawnChance(chance));
     refreshResetSettingsButtonState();
@@ -336,7 +354,7 @@ export function openSecretGuestsWindow(): void {
     return `${chance}%`;
   }
 
-  function getSelectedGuest(): SecretGuest | null {
+  function getSelectedGuest(): SecretGuestWithCustomSpawnSettings | null {
     if (selectedWhitelistIndex >= 0) {
       return whitelist[selectedWhitelistIndex] ?? null;
     }
@@ -348,11 +366,118 @@ export function openSecretGuestsWindow(): void {
     return null;
   }
 
+  function getGuestCustomSettingsEnabled(
+    guest: SecretGuestWithCustomSpawnSettings,
+  ): boolean {
+    return guest.enableCustomSpawnSettings ?? false;
+  }
+
+  function getGuestCustomSpawnWeight(
+    guest: SecretGuestWithCustomSpawnSettings,
+  ): number {
+    return guest.customSpawnWeight ?? DEFAULT_VALUES.spawnWeight;
+  }
+
+  function getGuestCustomSpawnCount(
+    guest: SecretGuestWithCustomSpawnSettings,
+  ): number {
+    return guest.customSpawnCount ?? spawnCountPerName;
+  }
+
+  function saveSelectedGuestCustomSettings({
+    enableCustomSettings,
+    customSpawnWeight,
+    customSpawnCount,
+  }: {
+    enableCustomSettings?: boolean;
+    customSpawnWeight?: number;
+    customSpawnCount?: number;
+  }): void {
+    const selectedGuest = getSelectedGuest();
+
+    if (selectedGuest === null) {
+      return;
+    }
+
+    const enabled =
+      enableCustomSettings ?? getGuestCustomSettingsEnabled(selectedGuest);
+
+    saveCustomSpawnSettingsForGuest(selectedGuest.name, {
+      enableCustomSettings: enabled,
+      customSpawnWeight:
+        customSpawnWeight ?? getGuestCustomSpawnWeight(selectedGuest),
+      customSpawnCount:
+        customSpawnCount ?? getGuestCustomSpawnCount(selectedGuest),
+    });
+
+    reloadListsFromStorage();
+    refreshUiFromGameState();
+    refreshResetSettingsButtonState();
+  }
+
+  function refreshGuestCustomSettingsWidgets(): void {
+    const selectedGuest = getSelectedGuest();
+    const hasSelectedGuest = selectedGuest !== null;
+    const enabled =
+      selectedGuest !== null && getGuestCustomSettingsEnabled(selectedGuest);
+    const visibleSpinnerX = {
+      customSpawnWeight: 210,
+      customSpawnCountForName: 400,
+    };
+    const hiddenSpinnerX = -1000;
+
+    updateWidgetProperties(
+      mainWindow,
+      WIDGET_NAMES.checkbox.useCustomGuestSpawnSettings,
+      {
+        isVisible: hasSelectedGuest,
+        isChecked: enabled,
+      },
+    );
+
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.label.customSpawnChance, {
+      isVisible: hasSelectedGuest,
+      isDisabled: !enabled,
+    });
+
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.customSpawnChance, {
+      isVisible: hasSelectedGuest,
+      isDisabled: !enabled,
+      x: hasSelectedGuest ? visibleSpinnerX.customSpawnWeight : hiddenSpinnerX,
+      text:
+        selectedGuest !== null
+          ? getGuestCustomSpawnWeight(selectedGuest).toString()
+          : "",
+    });
+
+    updateWidgetProperties(
+      mainWindow,
+      WIDGET_NAMES.label.customSpawnCountForName,
+      {
+        isVisible: hasSelectedGuest,
+        isDisabled: !enabled,
+      },
+    );
+
+    updateWidgetProperties(
+      mainWindow,
+      WIDGET_NAMES.spinner.customSpawnCountForName,
+      {
+        isVisible: hasSelectedGuest,
+        isDisabled: !enabled,
+        x: hasSelectedGuest
+          ? visibleSpinnerX.customSpawnCountForName
+          : hiddenSpinnerX,
+        text:
+          selectedGuest !== null
+            ? getGuestCustomSpawnCount(selectedGuest).toString()
+            : "",
+      },
+    );
+  }
+
   function areSettingsDefault(): boolean {
     // only need to check blacklist because whitelist is built from that + custom names
-    // maybe could make there be a check for only non-custom secret guests so it keeps them in the blacklist?
-    // maybe would need a customGuestsBlacklist?
-    // Or just extract the custom guests from the blacklist before resetting and save them into the blacklist?
     return (
       blacklist.length === DEFAULT_VALUES.blacklistGuestsNames.length &&
       blacklist.every((guest) =>
@@ -363,7 +488,8 @@ export function openSecretGuestsWindow(): void {
       notifyOnSpawn === DEFAULT_VALUES.notifyOnSpawn &&
       spawnChance === DEFAULT_VALUES.spawnChance &&
       spawnCountPerName === DEFAULT_VALUES.spawnCountPerName &&
-      spawnCountTotal === getAllGuests().length
+      spawnCountTotal === getAllGuests().length &&
+      getGuestsCustomSpawnSettings().length === 0
     );
   }
 
@@ -372,6 +498,7 @@ export function openSecretGuestsWindow(): void {
     setSpawnCountPerName();
     setSpawnCountTotal();
     setNotifyOnSpawn();
+    saveGuestsCustomSpawnSettings([]);
     setBlacklist();
   }
 
@@ -496,7 +623,7 @@ export function openSecretGuestsWindow(): void {
         width: 50,
         height: 20,
         text: "Clear",
-        tooltip: "Clear selected guest",
+        tooltip: "Clear selection",
         isDisabled: true,
         onClick: () => {
           setSelectedGuestIndex();
@@ -512,6 +639,195 @@ export function openSecretGuestsWindow(): void {
         width: 480,
         height: 12,
         text: "",
+      },
+      // use custom spawn weight/spawn count
+      // checked means use it and allows it to be altered, otherwise uses overall settings
+      {
+        type: "checkbox",
+        name: WIDGET_NAMES.checkbox.useCustomGuestSpawnSettings,
+        x: 10,
+        y: 235,
+        width: 135,
+        height: 12,
+        text: "Custom settings",
+        tooltip:
+          "Whether the guest uses an independent spawn weight/spawn count",
+        isChecked: false,
+        isVisible: false,
+        onChange: (isChecked) => {
+          saveSelectedGuestCustomSettings({
+            enableCustomSettings: isChecked,
+          });
+        },
+      },
+      // custom spawn weight label
+      {
+        type: "label",
+        name: WIDGET_NAMES.label.customSpawnChance,
+        x: 155,
+        y: 235,
+        width: 55,
+        height: 12,
+        text: "Weight:",
+        tooltip:
+          "Relative chance this guest is chosen after a secret guest spawn rolls",
+        isDisabled: true,
+        isVisible: false,
+      },
+      // custom spawn weight box
+      {
+        type: "spinner",
+        name: WIDGET_NAMES.spinner.customSpawnChance,
+        x: -1000,
+        y: 235,
+        width: 65,
+        height: 12,
+        text: "",
+        tooltip:
+          "Relative chance this guest is chosen after a secret guest spawn rolls",
+        isDisabled: true,
+        isVisible: false,
+        onDecrement: () => {
+          const selectedGuest = getSelectedGuest();
+
+          if (selectedGuest === null) {
+            return;
+          }
+
+          saveSelectedGuestCustomSettings({
+            //enableCustomSettings: true,
+            customSpawnWeight: normalizeSpawnWeight(
+              getGuestCustomSpawnWeight(selectedGuest) - 1,
+            ),
+          });
+        },
+        onIncrement: () => {
+          const selectedGuest = getSelectedGuest();
+
+          if (selectedGuest === null) {
+            return;
+          }
+
+          saveSelectedGuestCustomSettings({
+            //enableCustomSettings: true,
+            customSpawnWeight: normalizeSpawnWeight(
+              getGuestCustomSpawnWeight(selectedGuest) + 1,
+            ),
+          });
+        },
+        onClick: () => {
+          const selectedGuest = getSelectedGuest();
+
+          if (selectedGuest === null) {
+            return;
+          }
+
+          ui.showTextInput({
+            title: "Set Spawn Weight",
+            description: `New spawn weight for ${selectedGuest.name}:`,
+            initialValue: getGuestCustomSpawnWeight(selectedGuest).toString(),
+            maxLength: 3,
+            callback: (input) => {
+              const newSpawnWeight = Number(input);
+
+              if (isNaN(newSpawnWeight)) {
+                return;
+              }
+
+              saveSelectedGuestCustomSettings({
+                //enableCustomSettings: true,
+                customSpawnWeight: normalizeSpawnWeight(newSpawnWeight),
+              });
+            },
+          });
+        },
+      },
+      // custom spawn count for name label
+      {
+        type: "label",
+        name: WIDGET_NAMES.label.customSpawnCountForName,
+        x: 315,
+        y: 235,
+        width: 80,
+        height: 12,
+        text: "Max to spawn:",
+        isDisabled: true,
+        isVisible: false,
+        tooltip: "How many guests can have this secret name",
+      },
+      // custom spawn count for name box
+      {
+        type: "spinner",
+        name: WIDGET_NAMES.spinner.customSpawnCountForName,
+        x: -1000,
+        y: 235,
+        width: 65,
+        height: 12,
+        text: "",
+        isDisabled: true,
+        isVisible: false,
+        onDecrement: () => {
+          const selectedGuest = getSelectedGuest();
+
+          if (selectedGuest === null) {
+            return;
+          }
+
+          saveSelectedGuestCustomSettings({
+            //enableCustomSettings: true,
+            customSpawnCount: Math.max(
+              0,
+              getGuestCustomSpawnCount(selectedGuest) - 1,
+            ),
+          });
+        },
+        onIncrement: () => {
+          const selectedGuest = getSelectedGuest();
+
+          if (selectedGuest === null) {
+            return;
+          }
+
+          saveSelectedGuestCustomSettings({
+            //enableCustomSettings: true,
+            customSpawnCount: Math.min(
+              DEFAULT_VALUES.spawnCountPerNameMax,
+              getGuestCustomSpawnCount(selectedGuest) + 1,
+            ),
+          });
+        },
+        onClick: () => {
+          const selectedGuest = getSelectedGuest();
+
+          if (selectedGuest === null) {
+            return;
+          }
+
+          ui.showTextInput({
+            title: "Set Spawn Count",
+            description: `Set max spawn count for ${selectedGuest.name}:`,
+            initialValue: getGuestCustomSpawnCount(selectedGuest).toString(),
+            maxLength: 3,
+            callback: (input) => {
+              const newSpawnCount = Number(input);
+
+              if (isNaN(newSpawnCount)) {
+                return;
+              }
+
+              saveSelectedGuestCustomSettings({
+                //enableCustomSettings: true,
+                customSpawnCount: Math.max(
+                  0,
+                  Math.min(
+                    DEFAULT_VALUES.spawnCountPerNameMax,
+                    Math.floor(newSpawnCount),
+                  ),
+                ),
+              });
+            },
+          });
+        },
       },
       // spawn chance label
       {

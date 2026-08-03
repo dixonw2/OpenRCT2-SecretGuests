@@ -1,4 +1,8 @@
-import { SecretGuest, SECRET_GUESTS } from "./guests";
+import {
+  SecretGuest,
+  SECRET_GUESTS,
+  SecretGuestCustomSpawnSettings,
+} from "./guests";
 import { STORAGE_KEYS, DEFAULT_VALUES } from "./constants";
 
 export function getBlacklistNames(): string[] {
@@ -46,15 +50,15 @@ export function saveSpawnCountPerName(
   context.sharedStorage.set(STORAGE_KEYS.spawnCountPerName, spawnCountPerName);
 }
 
-function getSpawnCountTotalDefault(): number {
-  return SECRET_GUESTS.length + getCustomGuests().length;
-}
-
 export function getSpawnCountTotal(): number {
   return context.sharedStorage.get<number>(
     STORAGE_KEYS.spawnCountTotal,
     getSpawnCountTotalDefault(),
   );
+}
+
+function getSpawnCountTotalDefault(): number {
+  return SECRET_GUESTS.length + getCustomGuests().length;
 }
 
 export function saveSpawnCountTotal(
@@ -92,16 +96,74 @@ export function getCustomGuests(): SecretGuest[] {
   );
 }
 
-export function saveCustomGuests(
-  customGuests: SecretGuest[] = getDefaultCustomGuests(),
-): void {
+export function saveCustomGuests(customGuests: SecretGuest[]): void {
   // remove any original secret guest names
   customGuests = customGuests.filter((customGuest) =>
     SECRET_GUESTS.every((secretGuest) => secretGuest.name !== customGuest.name),
   );
 
+  const customGuestNames = customGuests.map((customGuest) => customGuest.name);
+  saveGuestsCustomSpawnSettings(
+    getGuestsCustomSpawnSettings().filter(
+      (setting) =>
+        SECRET_GUESTS.some(
+          (secretGuest) => secretGuest.name === setting.name,
+        ) || customGuestNames.indexOf(setting.name) !== -1,
+    ),
+  );
+
   context.sharedStorage.set<SecretGuest[]>(
     STORAGE_KEYS.customGuests,
     customGuests,
+  );
+}
+
+export function getGuestsCustomSpawnSettings(): SecretGuestCustomSpawnSettings[] {
+  return context.sharedStorage.get<SecretGuestCustomSpawnSettings[]>(
+    STORAGE_KEYS.guestsCustomSpawnSettings,
+    [],
+  );
+}
+
+export function saveGuestsCustomSpawnSettings(
+  settings: SecretGuestCustomSpawnSettings[],
+): void {
+  context.sharedStorage.set<SecretGuestCustomSpawnSettings[]>(
+    STORAGE_KEYS.guestsCustomSpawnSettings,
+    settings,
+  );
+}
+
+export function saveCustomSpawnSettingsForGuest(
+  name: string,
+  {
+    enableCustomSettings,
+    customSpawnWeight,
+    customSpawnCount,
+  }: {
+    enableCustomSettings: boolean;
+    customSpawnWeight?: number;
+    customSpawnCount?: number;
+  },
+): void {
+  const settings = getGuestsCustomSpawnSettings().filter(
+    (setting) => setting.name !== name,
+  );
+
+  saveGuestsCustomSpawnSettings(
+    settings.concat([
+      {
+        name,
+        enableCustomSpawnSettings: enableCustomSettings,
+        customSpawnWeight,
+        customSpawnCount,
+      },
+    ]),
+  );
+}
+
+export function deleteGuestsCustomSettings(name: string): void {
+  saveGuestsCustomSpawnSettings(
+    getGuestsCustomSpawnSettings().filter((setting) => setting.name !== name),
   );
 }
