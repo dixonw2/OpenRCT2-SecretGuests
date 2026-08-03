@@ -30,12 +30,6 @@ Inspired by Sun-gd00's [SecretCharacterSpawner](https://github.com/Sun-gd00/Open
    - If you already had this plugin installed before, you can safely overwrite the old file.
 3. Once the file is there, it should show up ingame in the dropdown menu under the map icon.
 
-# TODODODODODOODODODODODODO
-
-Seems like some weird issue between deleting a custom guest and the whitelist/blacklist? Seems like right now the guest is added to whichever list is selected, and maybe there's an issue if there isn't one selected?
-I swear I had two custom guests in the blacklist, I deleted one, and the other one switched to the whitelist. Possibly because one was created without selecting a list?
-There were some issues with selecting a custom guest and getting a different description for some reason, it seemed. Not sure how to replicate
-
 ## Version History
 
 ### v.1.2.0

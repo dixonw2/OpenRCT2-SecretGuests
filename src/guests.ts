@@ -2,16 +2,14 @@ export interface SecretGuest {
   name: string;
   description: string;
   flags?: PeepFlags[];
-}
 
-export interface SecretGuestCustomSpawnSettings {
-  name: string;
-  enableCustomSpawnSettings: boolean;
+  enableCustomSpawnSettings?: boolean;
   customSpawnWeight?: number;
   customSpawnCount?: number;
 }
 
-export interface SecretGuestWithCustomSpawnSettings extends SecretGuest {
+export interface SecretGuestCustomSpawnSettings {
+  name: string;
   enableCustomSpawnSettings?: boolean;
   customSpawnWeight?: number;
   customSpawnCount?: number;

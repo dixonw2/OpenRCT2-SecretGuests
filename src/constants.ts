@@ -6,7 +6,7 @@ export const WINDOW_CLASSIFICATIONS = {
 export const WIDGET_NAMES = {
   label: {
     spawnChance: "spawn-chance-label",
-    customSpawnChance: "custom-spawn-chance-label",
+    customSpawnWeight: "custom-spawn-weight-label",
     spawnCountPerName: "spawn-count-per-name-label",
     customSpawnCountForName: "custom-spawn-count-for-name-label",
     spawnCountTotal: "spawn-count-total-label",
@@ -14,7 +14,7 @@ export const WIDGET_NAMES = {
   },
   spinner: {
     spawnChance: "spawn-chance-spinner",
-    customSpawnChance: "custom-spawn-chance-spinner",
+    customSpawnWeight: "custom-spawn-weight-spinner",
     spawnCountPerName: "spawn-count-per-name-spinner",
     customSpawnCountForName: "custom-spawn-count-for-name-spinner",
     spawnCountTotal: "spawn-count-total-spinner",

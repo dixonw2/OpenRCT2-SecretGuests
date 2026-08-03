@@ -1,4 +1,4 @@
-import { SecretGuest, SecretGuestWithCustomSpawnSettings } from "./guests";
+import { SecretGuest } from "./guests";
 import {
   getBlacklist,
   getWhitelist,
@@ -54,43 +54,35 @@ export function setSelectedGuestDescription(
 
 export function openSecretGuestsWindow(): void {
   // #region Properties
-  let spawnChance = getSpawnChance();
   function setSpawnChance(value: number = DEFAULT_VALUES.spawnChance): void {
-    spawnChance = value;
-    saveSpawnChance(spawnChance);
+    saveSpawnChance(value);
     updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnChance, {
       text: getSpawnChanceSpinnerText(),
     });
   }
 
-  let spawnCountPerName = getSpawnCountPerName();
   function setSpawnCountPerName(
     value: number = DEFAULT_VALUES.spawnCountPerName,
   ): void {
-    spawnCountPerName = value;
-    saveSpawnCountPerName(spawnCountPerName);
+    saveSpawnCountPerName(value);
     updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnCountPerName, {
-      text: spawnCountPerName.toString(),
+      text: getSpawnCountPerName().toString(),
     });
   }
 
-  let spawnCountTotal = getSpawnCountTotal();
   function setSpawnCountTotal(value: number = getAllGuests().length): void {
-    spawnCountTotal = value;
-    saveSpawnCountTotal(spawnCountTotal);
+    saveSpawnCountTotal(value);
     updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.spawnCountTotal, {
-      text: spawnCountTotal.toString(),
+      text: getSpawnCountTotal().toString(),
     });
   }
 
-  let notifyOnSpawn = getNotifyOnSpawn();
   function setNotifyOnSpawn(
     value: boolean = DEFAULT_VALUES.notifyOnSpawn,
   ): void {
-    notifyOnSpawn = value;
-    saveNotifyOnSpawn(notifyOnSpawn);
+    saveNotifyOnSpawn(value);
     updateWidgetProperties(mainWindow, WIDGET_NAMES.checkbox.notifyOnSpawn, {
-      isChecked: notifyOnSpawn,
+      isChecked: getNotifyOnSpawn(),
     });
   }
 
@@ -162,9 +154,77 @@ export function openSecretGuestsWindow(): void {
     whitelist = getWhitelist();
   }
 
+  function setUseCustomSpawnSettingsForSelectedGuest(
+    value: boolean = false,
+  ): void {
+    const selected = getSelectedGuest();
+    if (selected === null) {
+      return;
+    }
+
+    saveCustomSpawnSettingsForGuest(selected.name, {
+      ...selected,
+      enableCustomSpawnSettings: value,
+    });
+
+    reloadListsFromStorage();
+    refreshGuestCustomSettingsWidgets();
+    refreshResetSettingsButtonState();
+  }
+
+  function setSpawnWeightForSelectedGuest(
+    value: number = DEFAULT_VALUES.spawnWeight,
+  ): void {
+    const selected = getSelectedGuest();
+    if (selected === null) {
+      return;
+    }
+
+    const normalizedWeight = normalizeSpawnWeight(value);
+
+    saveCustomSpawnSettingsForGuest(selected.name, {
+      ...selected,
+      customSpawnWeight:
+        normalizedWeight === DEFAULT_VALUES.spawnWeight
+          ? undefined
+          : normalizedWeight,
+    });
+
+    reloadListsFromStorage();
+    refreshGuestCustomSettingsWidgets();
+    refreshResetSettingsButtonState();
+  }
+
+  function setSpawnCountForSelectedGuest(
+    value: number = DEFAULT_VALUES.spawnCountPerName,
+  ): void {
+    const selected = getSelectedGuest();
+    if (selected === null) {
+      return;
+    }
+
+    const normalizedCount = Math.max(
+      0,
+      Math.min(DEFAULT_VALUES.spawnCountPerNameMax, Math.floor(value)),
+    );
+
+    saveCustomSpawnSettingsForGuest(selected.name, {
+      ...selected,
+      customSpawnCount:
+        normalizedCount === getSpawnCountPerName()
+          ? undefined
+          : normalizedCount,
+    });
+
+    reloadListsFromStorage();
+    refreshGuestCustomSettingsWidgets();
+    refreshResetSettingsButtonState();
+  }
+
   let whitelist = getWhitelist();
   // #endregion
 
+  // #region Main Window
   const existingMainWindow = getMainWindow();
 
   if (existingMainWindow !== null) {
@@ -212,7 +272,9 @@ export function openSecretGuestsWindow(): void {
     backgroundRefreshTicks = 0;
     refreshUiFromGameState();
   });
+  // #endregion
 
+  // #region UI Updaters
   /**
    * "Force Spawn" should be disabled when:
    * 1. No guest name is selected
@@ -251,7 +313,7 @@ export function openSecretGuestsWindow(): void {
   // can be called independent from user actions, like on interval
   function refreshUiFromGameState(): void {
     setSelectedGuestDescription(getSelectedGuest());
-    //refreshGuestCustomSettingsWidgets();
+    refreshGuestCustomSettingsWidgets();
     refreshForceSpawnButtonState();
   }
 
@@ -298,6 +360,12 @@ export function openSecretGuestsWindow(): void {
     });
   }
 
+  /**
+   * "Clear" button should be disabled when:
+   * 1. No guest name is selected
+   *
+   * Should be refreshed any time a guest name is selected or deselected
+   */
   function refreshClearSelectedGuestButtonState(): void {
     updateWidgetProperties(mainWindow, WIDGET_NAMES.button.clearSelectedGuest, {
       isDisabled: getSelectedGuest() === null,
@@ -323,11 +391,15 @@ export function openSecretGuestsWindow(): void {
     refreshUiFromGameState();
   }
 
-  function getSpawnChanceIncrementStep(chance: number = spawnChance): number {
+  function getSpawnChanceIncrementStep(
+    chance: number = getSpawnChance(),
+  ): number {
     return chance < 0.1 ? 0.01 : 0.1;
   }
 
-  function getSpawnChanceDecrementStep(chance: number = spawnChance): number {
+  function getSpawnChanceDecrementStep(
+    chance: number = getSpawnChance(),
+  ): number {
     return chance <= 0.1 ? 0.01 : 0.1;
   }
 
@@ -350,81 +422,22 @@ export function openSecretGuestsWindow(): void {
     refreshResetSettingsButtonState();
   }
 
-  function getSpawnChanceSpinnerText(chance: number = spawnChance): string {
-    return `${chance}%`;
-  }
-
-  function getSelectedGuest(): SecretGuestWithCustomSpawnSettings | null {
-    if (selectedWhitelistIndex >= 0) {
-      return whitelist[selectedWhitelistIndex] ?? null;
-    }
-
-    if (selectedBlacklistIndex >= 0) {
-      return blacklist[selectedBlacklistIndex] ?? null;
-    }
-
-    return null;
-  }
-
-  function getGuestCustomSettingsEnabled(
-    guest: SecretGuestWithCustomSpawnSettings,
-  ): boolean {
-    return guest.enableCustomSpawnSettings ?? false;
-  }
-
-  function getGuestCustomSpawnWeight(
-    guest: SecretGuestWithCustomSpawnSettings,
-  ): number {
-    return guest.customSpawnWeight ?? DEFAULT_VALUES.spawnWeight;
-  }
-
-  function getGuestCustomSpawnCount(
-    guest: SecretGuestWithCustomSpawnSettings,
-  ): number {
-    return guest.customSpawnCount ?? spawnCountPerName;
-  }
-
-  function saveSelectedGuestCustomSettings({
-    enableCustomSettings,
-    customSpawnWeight,
-    customSpawnCount,
-  }: {
-    enableCustomSettings?: boolean;
-    customSpawnWeight?: number;
-    customSpawnCount?: number;
-  }): void {
-    const selectedGuest = getSelectedGuest();
-
-    if (selectedGuest === null) {
-      return;
-    }
-
-    const enabled =
-      enableCustomSettings ?? getGuestCustomSettingsEnabled(selectedGuest);
-
-    saveCustomSpawnSettingsForGuest(selectedGuest.name, {
-      enableCustomSettings: enabled,
-      customSpawnWeight:
-        customSpawnWeight ?? getGuestCustomSpawnWeight(selectedGuest),
-      customSpawnCount:
-        customSpawnCount ?? getGuestCustomSpawnCount(selectedGuest),
-    });
-
-    reloadListsFromStorage();
-    refreshUiFromGameState();
-    refreshResetSettingsButtonState();
-  }
-
   function refreshGuestCustomSettingsWidgets(): void {
     const selectedGuest = getSelectedGuest();
     const hasSelectedGuest = selectedGuest !== null;
-    const enabled =
-      selectedGuest !== null && getGuestCustomSettingsEnabled(selectedGuest);
-    const visibleSpinnerX = {
-      customSpawnWeight: 210,
-      customSpawnCountForName: 400,
-    };
+    const enabled = selectedGuest?.enableCustomSpawnSettings ?? false;
+    const spawnWeightForSelectedGuest =
+      selectedGuest !== null
+        ? getGuestCustomSpawnWeight(selectedGuest)
+        : DEFAULT_VALUES.spawnWeight;
+    const spawnCountForSelectedGuest =
+      selectedGuest !== null
+        ? getGuestCustomSpawnCount(selectedGuest)
+        : getSpawnCountPerName();
+
     const hiddenSpinnerX = -1000;
+    const customSpawnWeightX = 210;
+    const customSpawnCountX = 400;
 
     updateWidgetProperties(
       mainWindow,
@@ -435,19 +448,16 @@ export function openSecretGuestsWindow(): void {
       },
     );
 
-    updateWidgetProperties(mainWindow, WIDGET_NAMES.label.customSpawnChance, {
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.label.customSpawnWeight, {
       isVisible: hasSelectedGuest,
       isDisabled: !enabled,
     });
 
-    updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.customSpawnChance, {
+    updateWidgetProperties(mainWindow, WIDGET_NAMES.spinner.customSpawnWeight, {
       isVisible: hasSelectedGuest,
       isDisabled: !enabled,
-      x: hasSelectedGuest ? visibleSpinnerX.customSpawnWeight : hiddenSpinnerX,
-      text:
-        selectedGuest !== null
-          ? getGuestCustomSpawnWeight(selectedGuest).toString()
-          : "",
+      x: hasSelectedGuest ? customSpawnWeightX : hiddenSpinnerX,
+      text: spawnWeightForSelectedGuest.toString(),
     });
 
     updateWidgetProperties(
@@ -465,15 +475,39 @@ export function openSecretGuestsWindow(): void {
       {
         isVisible: hasSelectedGuest,
         isDisabled: !enabled,
-        x: hasSelectedGuest
-          ? visibleSpinnerX.customSpawnCountForName
-          : hiddenSpinnerX,
-        text:
-          selectedGuest !== null
-            ? getGuestCustomSpawnCount(selectedGuest).toString()
-            : "",
+        x: hasSelectedGuest ? customSpawnCountX : hiddenSpinnerX,
+        text: spawnCountForSelectedGuest.toString(),
       },
     );
+  }
+
+  // #endregion
+
+  // #region Helpers
+  function getSpawnChanceSpinnerText(
+    chance: number = getSpawnChance(),
+  ): string {
+    return `${chance}%`;
+  }
+
+  function getSelectedGuest(): SecretGuest | null {
+    if (selectedWhitelistIndex >= 0) {
+      return whitelist[selectedWhitelistIndex] ?? null;
+    }
+
+    if (selectedBlacklistIndex >= 0) {
+      return blacklist[selectedBlacklistIndex] ?? null;
+    }
+
+    return null;
+  }
+
+  function getGuestCustomSpawnWeight(guest: SecretGuest): number {
+    return guest.customSpawnWeight ?? DEFAULT_VALUES.spawnWeight;
+  }
+
+  function getGuestCustomSpawnCount(guest: SecretGuest): number {
+    return guest.customSpawnCount ?? getSpawnCountPerName();
   }
 
   function areSettingsDefault(): boolean {
@@ -485,10 +519,10 @@ export function openSecretGuestsWindow(): void {
           (defaultName) => guest.name === defaultName,
         ),
       ) &&
-      notifyOnSpawn === DEFAULT_VALUES.notifyOnSpawn &&
-      spawnChance === DEFAULT_VALUES.spawnChance &&
-      spawnCountPerName === DEFAULT_VALUES.spawnCountPerName &&
-      spawnCountTotal === getAllGuests().length &&
+      getNotifyOnSpawn() === DEFAULT_VALUES.notifyOnSpawn &&
+      getSpawnChance() === DEFAULT_VALUES.spawnChance &&
+      getSpawnCountPerName() === DEFAULT_VALUES.spawnCountPerName &&
+      getSpawnCountTotal() === getAllGuests().length &&
       getGuestsCustomSpawnSettings().length === 0
     );
   }
@@ -501,6 +535,7 @@ export function openSecretGuestsWindow(): void {
     saveGuestsCustomSpawnSettings([]);
     setBlacklist();
   }
+  // #endregion
 
   function getWidgets(): WidgetDesc[] {
     return [
@@ -514,6 +549,7 @@ export function openSecretGuestsWindow(): void {
         height: 15,
         text: "Custom Guests",
         tooltip: "Open the Custom Guests Manager",
+        isVisible: false,
         onClick: () => {
           openCustomGuestsWindow(() => {
             updateListWidgets();
@@ -655,15 +691,13 @@ export function openSecretGuestsWindow(): void {
         isChecked: false,
         isVisible: false,
         onChange: (isChecked) => {
-          saveSelectedGuestCustomSettings({
-            enableCustomSettings: isChecked,
-          });
+          setUseCustomSpawnSettingsForSelectedGuest(isChecked);
         },
       },
       // custom spawn weight label
       {
         type: "label",
-        name: WIDGET_NAMES.label.customSpawnChance,
+        name: WIDGET_NAMES.label.customSpawnWeight,
         x: 155,
         y: 235,
         width: 55,
@@ -677,7 +711,7 @@ export function openSecretGuestsWindow(): void {
       // custom spawn weight box
       {
         type: "spinner",
-        name: WIDGET_NAMES.spinner.customSpawnChance,
+        name: WIDGET_NAMES.spinner.customSpawnWeight,
         x: -1000,
         y: 235,
         width: 65,
@@ -694,12 +728,9 @@ export function openSecretGuestsWindow(): void {
             return;
           }
 
-          saveSelectedGuestCustomSettings({
-            //enableCustomSettings: true,
-            customSpawnWeight: normalizeSpawnWeight(
-              getGuestCustomSpawnWeight(selectedGuest) - 1,
-            ),
-          });
+          setSpawnWeightForSelectedGuest(
+            normalizeSpawnWeight(getGuestCustomSpawnWeight(selectedGuest) - 1),
+          );
         },
         onIncrement: () => {
           const selectedGuest = getSelectedGuest();
@@ -708,12 +739,9 @@ export function openSecretGuestsWindow(): void {
             return;
           }
 
-          saveSelectedGuestCustomSettings({
-            //enableCustomSettings: true,
-            customSpawnWeight: normalizeSpawnWeight(
-              getGuestCustomSpawnWeight(selectedGuest) + 1,
-            ),
-          });
+          setSpawnWeightForSelectedGuest(
+            normalizeSpawnWeight(getGuestCustomSpawnWeight(selectedGuest) + 1),
+          );
         },
         onClick: () => {
           const selectedGuest = getSelectedGuest();
@@ -734,10 +762,9 @@ export function openSecretGuestsWindow(): void {
                 return;
               }
 
-              saveSelectedGuestCustomSettings({
-                //enableCustomSettings: true,
-                customSpawnWeight: normalizeSpawnWeight(newSpawnWeight),
-              });
+              setSpawnWeightForSelectedGuest(
+                normalizeSpawnWeight(newSpawnWeight),
+              );
             },
           });
         },
@@ -773,13 +800,9 @@ export function openSecretGuestsWindow(): void {
             return;
           }
 
-          saveSelectedGuestCustomSettings({
-            //enableCustomSettings: true,
-            customSpawnCount: Math.max(
-              0,
-              getGuestCustomSpawnCount(selectedGuest) - 1,
-            ),
-          });
+          setSpawnCountForSelectedGuest(
+            Math.max(0, getGuestCustomSpawnCount(selectedGuest) - 1),
+          );
         },
         onIncrement: () => {
           const selectedGuest = getSelectedGuest();
@@ -788,13 +811,9 @@ export function openSecretGuestsWindow(): void {
             return;
           }
 
-          saveSelectedGuestCustomSettings({
-            //enableCustomSettings: true,
-            customSpawnCount: Math.min(
-              DEFAULT_VALUES.spawnCountPerNameMax,
-              getGuestCustomSpawnCount(selectedGuest) + 1,
-            ),
-          });
+          setSpawnCountForSelectedGuest(
+            Math.max(0, getGuestCustomSpawnCount(selectedGuest) + 1),
+          );
         },
         onClick: () => {
           const selectedGuest = getSelectedGuest();
@@ -815,16 +834,15 @@ export function openSecretGuestsWindow(): void {
                 return;
               }
 
-              saveSelectedGuestCustomSettings({
-                //enableCustomSettings: true,
-                customSpawnCount: Math.max(
+              setSpawnCountForSelectedGuest(
+                Math.max(
                   0,
                   Math.min(
                     DEFAULT_VALUES.spawnCountPerNameMax,
                     Math.floor(newSpawnCount),
                   ),
                 ),
-              });
+              );
             },
           });
         },
@@ -850,16 +868,16 @@ export function openSecretGuestsWindow(): void {
         height: 12,
         text: getSpawnChanceSpinnerText(),
         onDecrement: () => {
-          updateSpawnChance(spawnChance - getSpawnChanceDecrementStep());
+          updateSpawnChance(getSpawnChance() - getSpawnChanceDecrementStep());
         },
         onIncrement: () => {
-          updateSpawnChance(spawnChance + getSpawnChanceIncrementStep());
+          updateSpawnChance(getSpawnChance() + getSpawnChanceIncrementStep());
         },
         onClick: () => {
           ui.showTextInput({
             title: "Set Spawn Chance",
             description: "New spawn chance:",
-            initialValue: spawnChance.toString(),
+            initialValue: getSpawnChance().toString(),
             maxLength: 4,
             callback: (input) => {
               const newSpawnChance = Number(input);
@@ -892,16 +910,16 @@ export function openSecretGuestsWindow(): void {
         y: 279,
         width: 70,
         height: 12,
-        text: spawnCountPerName.toString(),
+        text: getSpawnCountPerName().toString(),
         onDecrement: () => {
-          setSpawnCountPerName(Math.max(0, spawnCountPerName - 1));
+          setSpawnCountPerName(Math.max(0, getSpawnCountPerName() - 1));
           refreshResetSettingsButtonState();
         },
         onIncrement: () => {
           setSpawnCountPerName(
             Math.min(
               DEFAULT_VALUES.spawnCountPerNameMax,
-              spawnCountPerName + 1,
+              getSpawnCountPerName() + 1,
             ),
           );
           refreshResetSettingsButtonState();
@@ -910,7 +928,7 @@ export function openSecretGuestsWindow(): void {
           ui.showTextInput({
             title: "Set Spawn Count",
             description: "Set max spawn count per name:",
-            initialValue: spawnCountPerName.toString(),
+            initialValue: getSpawnCountPerName().toString(),
             maxLength: 3,
             callback: (input) => {
               const newSpawnCount = Number(input);
@@ -952,14 +970,17 @@ export function openSecretGuestsWindow(): void {
         y: 299,
         width: 70,
         height: 12,
-        text: spawnCountTotal.toString(),
+        text: getSpawnCountTotal().toString(),
         onDecrement: () => {
-          setSpawnCountTotal(Math.max(0, spawnCountTotal - 1));
+          setSpawnCountTotal(Math.max(0, getSpawnCountTotal() - 1));
           refreshResetSettingsButtonState();
         },
         onIncrement: () => {
           setSpawnCountTotal(
-            Math.min(DEFAULT_VALUES.spawnCountTotalMax, spawnCountTotal + 1),
+            Math.min(
+              DEFAULT_VALUES.spawnCountTotalMax,
+              getSpawnCountTotal() + 1,
+            ),
           );
           refreshResetSettingsButtonState();
         },
@@ -967,7 +988,7 @@ export function openSecretGuestsWindow(): void {
           ui.showTextInput({
             title: "Set Spawn Count",
             description: "Set total max spawn count:",
-            initialValue: spawnCountTotal.toString(),
+            initialValue: getSpawnCountTotal().toString(),
             maxLength: 3,
             callback: (input) => {
               const newSpawnCount = Number(input);
@@ -1001,7 +1022,7 @@ export function openSecretGuestsWindow(): void {
         text: "Notify on spawn",
         tooltip:
           "Whether to receive a notification on secret guest spawn or not",
-        isChecked: notifyOnSpawn,
+        isChecked: getNotifyOnSpawn(),
         onChange: (isChecked) => {
           setNotifyOnSpawn(isChecked);
           refreshResetSettingsButtonState();

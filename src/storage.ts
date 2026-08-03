@@ -137,11 +137,11 @@ export function saveGuestsCustomSpawnSettings(
 export function saveCustomSpawnSettingsForGuest(
   name: string,
   {
-    enableCustomSettings,
+    enableCustomSpawnSettings,
     customSpawnWeight,
     customSpawnCount,
   }: {
-    enableCustomSettings: boolean;
+    enableCustomSpawnSettings?: boolean;
     customSpawnWeight?: number;
     customSpawnCount?: number;
   },
@@ -154,7 +154,7 @@ export function saveCustomSpawnSettingsForGuest(
     settings.concat([
       {
         name,
-        enableCustomSpawnSettings: enableCustomSettings,
+        enableCustomSpawnSettings,
         customSpawnWeight,
         customSpawnCount,
       },

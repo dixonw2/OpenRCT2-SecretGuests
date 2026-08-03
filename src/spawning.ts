@@ -1,4 +1,4 @@
-import { SecretGuest, SecretGuestWithCustomSpawnSettings } from "./guests";
+import { SecretGuest } from "./guests";
 import { getAllGuests } from "./guestLists";
 import {
   getBlacklistNames,
@@ -26,7 +26,7 @@ function getTotalSecretCount(): number {
     .length;
 }
 
-function getEligibleGuests(): SecretGuestWithCustomSpawnSettings[] {
+function getEligibleGuests(): SecretGuest[] {
   const blacklistedNames = getBlacklistNames();
   const maxTotal = getSpawnCountTotal();
 
@@ -42,7 +42,7 @@ function getEligibleGuests(): SecretGuestWithCustomSpawnSettings[] {
 }
 
 function getEffectiveSpawnCount(
-  guest: SecretGuestWithCustomSpawnSettings,
+  guest: SecretGuest,
 ): number {
   return guest.enableCustomSpawnSettings === true &&
     guest.customSpawnCount !== undefined
@@ -51,7 +51,7 @@ function getEffectiveSpawnCount(
 }
 
 function getEffectiveSpawnWeight(
-  guest: SecretGuestWithCustomSpawnSettings,
+  guest: SecretGuest,
 ): number {
   return guest.enableCustomSpawnSettings === true &&
     guest.customSpawnWeight !== undefined
@@ -60,8 +60,8 @@ function getEffectiveSpawnWeight(
 }
 
 function getRandomWeightedGuest(
-  guests: SecretGuestWithCustomSpawnSettings[],
-): SecretGuestWithCustomSpawnSettings | null {
+  guests: SecretGuest[],
+): SecretGuest | null {
   let totalWeight = 0;
   for (const guest of guests) {
     totalWeight += Math.max(0, getEffectiveSpawnWeight(guest));

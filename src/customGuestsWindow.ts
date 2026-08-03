@@ -461,3 +461,9 @@ export function openCustomGuestsWindow(
     ).selectedCell = null;
   }
 }
+
+// # TODODODODODOODODODODODODO
+
+// Seems like some weird issue between deleting a custom guest and the whitelist/blacklist? Seems like right now the guest is added to whichever list is selected, and maybe there's an issue if there isn't one selected?
+// I swear I had two custom guests in the blacklist, I deleted one, and the other one switched to the whitelist. Possibly because one was created without selecting a list?
+// There were some issues with selecting a custom guest and getting a different description for some reason, it seemed. Not sure how to replicate
