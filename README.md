@@ -34,6 +34,7 @@ Inspired by Sun-gd00's [SecretCharacterSpawner](https://github.com/Sun-gd00/Open
 
 ### v.1.2.0
 
+- Spawn chance can now be less than 0.1 (0.01 to 0.09) for even more rare guest spawns
 - Guests can be configured to have individual spawn caps/spawn weights
 - Add ability to deselect a guest
   - Not really useful but in case someone wanted it
