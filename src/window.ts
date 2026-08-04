@@ -793,6 +793,7 @@ export function openSecretGuestsWindow(): void {
         text: "",
         isDisabled: true,
         isVisible: false,
+        tooltip: "How many guests can have this secret name",
         onDecrement: () => {
           const selectedGuest = getSelectedGuest();
 
