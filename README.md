@@ -4,7 +4,10 @@ A configurable plugin for OpenRCT2 to spawn guests with easter egg names.
 
 Inspired by Sun-gd00's [SecretCharacterSpawner](https://github.com/Sun-gd00/OpenRCT2-SecretCharacterSpawner), Built from Basssiiie’s [OpenRCT2 TypeScript plugin template](https://github.com/Basssiiie/OpenRCT2-Simple-Typescript-Template).
 
-<img width="1085" height="617" alt="secretguests" src="https://github.com/user-attachments/assets/f8e125d0-6130-4f38-954c-595ad2bab9d6" />
+<img width="1426" height="823" alt="secretguests_v1_2_0" src="https://github.com/user-attachments/assets/f561d994-3dc8-4ea3-abce-6b27f29b7f5c" />
+
+<!-- v1.0.0 image -->
+<!--<img width="1085" height="617" alt="secretguests" src="https://github.com/user-attachments/assets/f8e125d0-6130-4f38-954c-595ad2bab9d6" />-->
 
 ## Features
 
