@@ -2,45 +2,18 @@ export interface SecretGuest {
   name: string;
   description: string;
   flags?: PeepFlags[];
+
+  enableCustomSpawnSettings?: boolean;
+  customSpawnWeight?: number;
+  customSpawnCount?: number;
 }
 
-/*
-    Custom guest example (in SECRET_GUESTS):
-    {
-        name: "Test",
-        description: "Splashes everyone with a purple paint balloon",
-        flags: ["purple"],
-    },
-
-    Flags list (untested)
-    "leavingPark"
-    "slowWalk"
-    "tracking"
-    "waving"
-    "hasPaidForParkEntry"
-    "photo"
-    "painting"
-    "wow"
-    "litter"
-    "lost"
-    "hunger"
-    "toilet"
-    "crowded"
-    "happiness"
-    "nausea"
-    "purple"
-    "pizza"
-    "explode"
-    "rideShouldBeMarkedAsFavourite"
-    "parkEntranceChosen"
-    "contagious"
-    "joy"
-    "angry"
-    "iceCream"
-    "hereWeAre"
-    "positionFrozen"
-    "animationFrozen"
-*/
+export interface SecretGuestCustomSpawnSettings {
+  name: string;
+  enableCustomSpawnSettings?: boolean;
+  customSpawnWeight?: number;
+  customSpawnCount?: number;
+}
 
 export const SECRET_GUESTS: SecretGuest[] = [
   {
@@ -127,7 +100,6 @@ export const SECRET_GUESTS: SecretGuest[] = [
     // \u201C explicitly uses a left double quotation mark, \u201D uses a right
     // Using " instead uses solely a right
     name: "Corina Massoura",
-    //description: "Thinks \u201CIt's too crowded here\u201D",
     description: "Has random thoughts",
   },
   {
@@ -142,13 +114,4 @@ export const SECRET_GUESTS: SecretGuest[] = [
     name: "David Ellis",
     description: "Thinks \u201C...and here we are on <ride>!\u201D (on ride)",
   },
-];
-
-export const BLACKLIST_GUESTS_NAMES_DEFAULT: string[] = [
-  "Katie Rodger",
-  "Lisa Stirling",
-  "Eilidh Bell",
-  "Felicity Anderson",
-  "Corina Massoura",
-  "Donald MacRae",
 ];

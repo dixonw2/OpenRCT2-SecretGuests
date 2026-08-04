@@ -1,4 +1,5 @@
-import { SecretGuest, SECRET_GUESTS } from "./guests";
+import { SecretGuest } from "./guests";
+import { getAllGuests } from "./guestLists";
 import {
   getBlacklistNames,
   getSpawnChance,
@@ -18,39 +19,73 @@ export function getCurrentSecretCount(name: string): number {
     .length;
 }
 
-export function getTotalSecretCount(): number {
+function getTotalSecretCount(): number {
   return map
     .getAllEntities("guest")
-    .filter((guest) => SECRET_GUESTS.some((sg) => sg.name === guest.name))
+    .filter((guest) => getAllGuests().some((sg) => sg.name === guest.name))
     .length;
 }
 
-export function getEligibleGuests(): SecretGuest[] {
+function getEligibleGuests(): SecretGuest[] {
   const blacklistedNames = getBlacklistNames();
-  const maxPerName = getSpawnCountPerName();
   const maxTotal = getSpawnCountTotal();
 
   if (getTotalSecretCount() >= maxTotal) {
     return [];
   }
 
-  return SECRET_GUESTS.filter(
+  return getAllGuests().filter(
     (guest) =>
       blacklistedNames.indexOf(guest.name) === -1 &&
-      getCurrentSecretCount(guest.name) < maxPerName,
+      getCurrentSecretCount(guest.name) < getEffectiveSpawnCount(guest),
   );
 }
 
-export function getRandomGuest(guests: SecretGuest[]): SecretGuest | null {
-  if (guests.length === 0) {
+function getEffectiveSpawnCount(
+  guest: SecretGuest,
+): number {
+  return guest.enableCustomSpawnSettings === true &&
+    guest.customSpawnCount !== undefined
+    ? guest.customSpawnCount
+    : getSpawnCountPerName();
+}
+
+function getEffectiveSpawnWeight(
+  guest: SecretGuest,
+): number {
+  return guest.enableCustomSpawnSettings === true &&
+    guest.customSpawnWeight !== undefined
+    ? guest.customSpawnWeight
+    : 1;
+}
+
+function getRandomWeightedGuest(
+  guests: SecretGuest[],
+): SecretGuest | null {
+  let totalWeight = 0;
+  for (const guest of guests) {
+    totalWeight += Math.max(0, getEffectiveSpawnWeight(guest));
+  }
+
+  if (totalWeight <= 0) {
     return null;
   }
 
-  return guests[Math.floor(Math.random() * guests.length)];
+  let roll = Math.random() * totalWeight;
+
+  for (const guest of guests) {
+    roll -= Math.max(0, getEffectiveSpawnWeight(guest));
+
+    if (roll < 0) {
+      return guest;
+    }
+  }
+
+  return null;
 }
 
 // CAN overwrite existing spawned guests with different names
-export function spawnGuest(
+export function forceSpawnGuest(
   guest: SecretGuest,
   onSpawn?: (guest: SecretGuest) => void,
 ): void {
@@ -63,7 +98,6 @@ export function spawnGuest(
   }
 
   const randGuest = guests[Math.floor(Math.random() * guests.length)];
-
   if (randGuest.id === null) {
     return;
   }
@@ -117,8 +151,8 @@ export function registerSecretGuestActions(): void {
 
       const peep = guest as Guest;
 
-      for (let i = 0; i < event.args.flags.length; i++) {
-        peep.setFlag(event.args.flags[i], true);
+      for (const flag of event.args.flags) {
+        peep.setFlag(flag, true);
       }
 
       return {};
@@ -141,7 +175,7 @@ export function startSecretGuestInterval(
       return;
     }
 
-    const randGuest = getRandomGuest(getEligibleGuests());
+    const randGuest = getRandomWeightedGuest(getEligibleGuests());
 
     if (randGuest === null) {
       return;
@@ -151,14 +185,14 @@ export function startSecretGuestInterval(
       park.postMessage({
         type: "peep",
         text: `${guest.name} was renamed to ${randGuest.name}`,
-        subject: guest.id,
+        subject: e.id,
       });
     }
 
     context.executeAction(
       "guestsetname",
       {
-        peep: guest.id,
+        peep: e.id,
         name: randGuest.name,
       },
       () => {
