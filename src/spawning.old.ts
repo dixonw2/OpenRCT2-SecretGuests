@@ -130,26 +130,7 @@ function applyGuestFlags(guestId: number, guest: SecretGuest): void {
   context.executeAction(SET_GUEST_FLAGS_ACTION, {
     guestId,
     flags: guest.flags,
-    enabled: true,
   });
-}
-
-export function applyGuestFlagToExistingGuests(
-  guestName: string,
-  flag: PeepFlags,
-  enabled: boolean,
-): void {
-  const guests = map
-    .getAllEntities("guest")
-    .filter((guest) => guest.name === guestName && guest.id !== null);
-
-  for (const guest of guests) {
-    context.executeAction(SET_GUEST_FLAGS_ACTION, {
-      guestId: guest.id as number,
-      flags: [flag],
-      enabled,
-    });
-  }
 }
 
 export function registerSecretGuestActions(): void {
@@ -166,7 +147,7 @@ export function registerSecretGuestActions(): void {
       const peep = guest as Guest;
 
       for (const flag of event.args.flags) {
-        peep.setFlag(flag, event.args.enabled);
+        peep.setFlag(flag, true);
       }
 
       return {};

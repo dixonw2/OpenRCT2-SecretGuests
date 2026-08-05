@@ -1,7 +1,6 @@
 import { SECRET_GUESTS, SecretGuest } from "./guests";
 import { getGuestNames } from "./guestLists";
 import { getCustomGuests, saveCustomGuests } from "./storage";
-import { applyGuestFlagToExistingGuests } from "./spawning";
 import {
   nextSelectIndexForList,
   updateWidgetProperties,
@@ -209,7 +208,6 @@ export function openCustomGuestsWindow(
     if (hasSelectedCustomGuest()) {
       const selectedGuest = getCustomGuests()[selectedCustomGuestIndex];
       const currentFlags = selectedGuest.flags ?? [];
-      const enabled = !hasFlag(currentFlags, flag);
 
       setCustomGuests(
         getCustomGuests().map((guest, index) =>
@@ -221,7 +219,6 @@ export function openCustomGuestsWindow(
             : guest,
         ),
       );
-      applyGuestFlagToExistingGuests(selectedGuest.name, flag, enabled);
       return;
     }
 

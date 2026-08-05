@@ -4,6 +4,7 @@ A configurable plugin for OpenRCT2 to spawn guests with easter egg names.
 
 Inspired by Sun-gd00's [SecretCharacterSpawner](https://github.com/Sun-gd00/OpenRCT2-SecretCharacterSpawner), Built from Basssiiie’s [OpenRCT2 TypeScript plugin template](https://github.com/Basssiiie/OpenRCT2-Simple-Typescript-Template).
 
+<!-- v1.2.0 image -->
 <img width="1426" height="823" alt="secretguests_v1_2_0" src="https://github.com/user-attachments/assets/f561d994-3dc8-4ea3-abce-6b27f29b7f5c" />
 
 <!-- v1.0.0 image -->
@@ -35,18 +36,18 @@ Inspired by Sun-gd00's [SecretCharacterSpawner](https://github.com/Sun-gd00/Open
 
 ## Version History
 
-### v.1.2.0
+### v.1.2.0 - 2026/08/04
 
 - Spawn chance can now be less than 0.1 (0.01 to 0.09) for even more rare guest spawns
 - Guests can be configured to have individual spawn caps/spawn weights
 - Add ability to deselect a guest
   - Not really useful but in case someone wanted it
 
-### v.1.1.0
+### v.1.1.0 - 2026/07/27
 
 - Can turn notifications on/off for when a secret guest spawns
 
-### v1.0.0
+### v1.0.0 - 2026/07/27
 
 - Whitelist/blacklist for naturally spawning secret guests
   - Can force spawn a guest regardless of whitelist/blacklist

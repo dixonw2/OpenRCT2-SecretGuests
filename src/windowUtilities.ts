@@ -21,6 +21,14 @@ function isTextWidget(widget: Widget): widget is TextWidget {
   );
 }
 
+// export function getWidgetTextProperty(
+//   window: Window,
+//   widgetName: string,
+// ): string | null {
+//   const widget = window.findWidget<Widget>(widgetName);
+//   return isTextWidget(widget) ? widget.text : null;
+// }
+
 export function updateWidgetProperties(
   window: Window,
   widgetName: string,
