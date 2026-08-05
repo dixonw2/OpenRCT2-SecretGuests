@@ -1,3 +1,4 @@
+import { WIDGET_NAMES, WINDOW_CLASSIFICATIONS } from "./constants";
 import { SECRET_GUESTS, SecretGuest } from "./guests";
 import { getGuestNames } from "./guestLists";
 import { getCustomGuests, saveCustomGuests } from "./storage";
@@ -6,28 +7,6 @@ import {
   nextSelectIndexForList,
   updateWidgetProperties,
 } from "./windowUtilities";
-
-const WINDOW_CLASSIFICATION = "secret-guests-custom-guests";
-
-const WIDGET_NAMES = {
-  listview: {
-    customGuests: "custom-guests-list",
-  },
-  label: {
-    selectedCustomGuestDescription: "selected-custom-guest-description",
-    customGuestName: "custom-guest-name-label",
-    customGuestDescription: "custom-guest-description",
-  },
-  textbox: {
-    customGuestName: "custom-guest-name",
-    customGuestDescription: "custom-guest-description-input",
-  },
-  button: {
-    addCustomGuest: "custom-guest-add-button",
-    deleteCustomGuest: "custom-guest-delete-button",
-    newCustomGuest: "custom-guest-new-button",
-  },
-} as const;
 
 const LEFT_COLUMN_X = 10;
 const LEFT_COLUMN_WIDTH = 230;
@@ -99,19 +78,23 @@ function getTrimmedTextboxText(window: Window, widgetName: string): string {
 }
 
 export function openCustomGuestsWindow(
-  onCustomGuestsChanged: () => void,
+  onCustomGuestsChanged: (deletedGuestName?: string) => void,
 ): void {
-  const existingWindow = ui.getWindow(WINDOW_CLASSIFICATION);
+  const existingWindow = ui.getWindow(
+    WINDOW_CLASSIFICATIONS.customGuestsWindow,
+  );
   if (existingWindow !== null) {
     existingWindow.bringToFront();
     return;
   }
 
-  function setCustomGuests(value: SecretGuest[]): void {
+  function setCustomGuests(
+    value: SecretGuest[],
+    deletedGuestName?: string,
+  ): void {
     saveCustomGuests(value);
     refreshCustomGuestsList();
-    //refreshEditorState();
-    onCustomGuestsChanged();
+    onCustomGuestsChanged(deletedGuestName);
   }
 
   let selectedCustomGuestIndex = -1;
@@ -128,7 +111,7 @@ export function openCustomGuestsWindow(
   }
 
   const customGuestsWindow = ui.openWindow({
-    classification: WINDOW_CLASSIFICATION,
+    classification: WINDOW_CLASSIFICATIONS.customGuestsWindow,
     title: "Custom Guests Manager",
     width: 600,
     height: 360,
@@ -159,7 +142,6 @@ export function openCustomGuestsWindow(
       WIDGET_NAMES.textbox.customGuestName,
       {
         isDisabled: !canEditNewGuest,
-        text: "",
       },
     );
     updateWidgetProperties(
@@ -174,7 +156,6 @@ export function openCustomGuestsWindow(
       WIDGET_NAMES.textbox.customGuestDescription,
       {
         isDisabled: !canEditNewGuest,
-        text: "",
       },
     );
 
@@ -453,6 +434,8 @@ export function openCustomGuestsWindow(
             return;
           }
 
+          const deletedGuestName =
+            getCustomGuests()[selectedCustomGuestIndex].name;
           const nextCustomGuests = getCustomGuests().filter(
             (_guest, index) => index !== selectedCustomGuestIndex,
           );
@@ -462,7 +445,7 @@ export function openCustomGuestsWindow(
             nextCustomGuests,
           );
 
-          setCustomGuests(nextCustomGuests);
+          setCustomGuests(nextCustomGuests, deletedGuestName);
           setSelectedCustomGuestIndex(selectedCustomGuestIndex);
           refreshCustomGuestsListSelection();
           refreshDescription();
@@ -562,15 +545,14 @@ export function openCustomGuestsWindow(
               },
             ]),
           );
-          //setSelectedCustomGuestIndex(getCustomGuests().length - 1);
-          setCreateNewGuestStarted();
+          clearTextboxes();
+          refreshAddButtonState();
           setNewGuestFlags();
         },
       },
     ];
 
     addFlagWidgets(widgets);
-
     return widgets;
   }
 }

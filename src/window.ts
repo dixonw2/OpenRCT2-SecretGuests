@@ -46,7 +46,7 @@ export function setSelectedGuestDescription(
   const mw = getMainWindow();
 
   if (mw !== null) {
-    updateWidgetProperties(mw, WIDGET_NAMES.label.guestDescription, {
+    updateWidgetProperties(mw, WIDGET_NAMES.label.selectedGuestDescription, {
       text: description,
     });
   }
@@ -88,6 +88,7 @@ export function openSecretGuestsWindow(): void {
 
   let selectedWhitelistIndex = -1;
   let selectedBlacklistIndex = -1;
+  let selectedGuestName: string | null = null;
 
   function setSelectedGuestIndex(
     list: "whitelist" | "blacklist" | null = null,
@@ -139,6 +140,9 @@ export function openSecretGuestsWindow(): void {
         selectedCell: null,
       });
     }
+
+    const selectedGuest = getSelectedGuest();
+    selectedGuestName = selectedGuest !== null ? selectedGuest.name : null;
 
     refreshWhitelistNameButtonState();
     refreshBlacklistNameButtonState();
@@ -292,13 +296,6 @@ export function openSecretGuestsWindow(): void {
     });
   }
 
-  // currently on delete of custom guest and adjusting the settings, the reset button doesn't get disabled
-  // to replicate:
-  // currently, as of July 29 4:33pm, add custom guest, resetSettings gets updated because spawnCountTotal is 25 by default now and spawnCountTotal is still 24 from default settings
-  // scrolling up 1 to 25 causes it to become disabled automatically
-  // when deleting while custom guest is in whitelist, spawnCountTotal set to 24 (with reset settings button active before deleting, as it should be)
-  // then delete, totalGuests is 24 now, have to scroll up to 25 then 24 to disable
-  // when deleting while custom guest is in blacklist, can't update the button at all for some reason. Have to close and reopen
   function refreshResetSettingsButtonState(): void {
     updateWidgetProperties(mainWindow, WIDGET_NAMES.button.resetSettings, {
       isDisabled: areSettingsDefault(),
@@ -324,6 +321,46 @@ export function openSecretGuestsWindow(): void {
 
   function reloadListsFromStorage(): void {
     updateListWidgets();
+  }
+
+  function refreshSelectionAfterCustomGuestDeleted(
+    deletedGuestName: string,
+  ): void {
+    if (selectedGuestName === null) {
+      return;
+    }
+
+    if (selectedWhitelistIndex !== -1) {
+      if (selectedGuestName === deletedGuestName) {
+        setSelectedGuestIndex(
+          "whitelist",
+          nextSelectIndexForList<SecretGuest>(
+            selectedWhitelistIndex,
+            getWhitelist(),
+          ),
+        );
+      } else {
+        setSelectedGuestIndex(
+          "whitelist",
+          getGuestIndexByName(getWhitelist(), selectedGuestName),
+        );
+      }
+    } else if (selectedBlacklistIndex !== -1) {
+      if (selectedGuestName === deletedGuestName) {
+        setSelectedGuestIndex(
+          "blacklist",
+          nextSelectIndexForList<SecretGuest>(
+            selectedBlacklistIndex,
+            getBlacklist(),
+          ),
+        );
+      } else {
+        setSelectedGuestIndex(
+          "blacklist",
+          getGuestIndexByName(getBlacklist(), selectedGuestName),
+        );
+      }
+    }
   }
 
   /**
@@ -502,6 +539,16 @@ export function openSecretGuestsWindow(): void {
     return null;
   }
 
+  function getGuestIndexByName(guests: SecretGuest[], name: string): number {
+    for (let i = 0; i < guests.length; i++) {
+      if (guests[i].name === name) {
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
   function getGuestCustomSpawnWeight(guest: SecretGuest): number {
     return guest.customSpawnWeight ?? DEFAULT_VALUES.spawnWeight;
   }
@@ -551,7 +598,11 @@ export function openSecretGuestsWindow(): void {
         text: "Custom Guests",
         tooltip: "Open the Custom Guests Manager",
         onClick: () => {
-          openCustomGuestsWindow(() => {
+          openCustomGuestsWindow((deletedGuestName) => {
+            if (deletedGuestName !== undefined) {
+              refreshSelectionAfterCustomGuestDeleted(deletedGuestName);
+            }
+
             updateListWidgets();
             refreshUiFromGameState();
           });
@@ -669,7 +720,7 @@ export function openSecretGuestsWindow(): void {
       // guest description label
       {
         type: "label",
-        name: WIDGET_NAMES.label.guestDescription,
+        name: WIDGET_NAMES.label.selectedGuestDescription,
         x: 10,
         y: 215,
         width: 480,
