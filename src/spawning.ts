@@ -12,6 +12,7 @@ const SET_GUEST_FLAGS_ACTION = "secretguests_setflags";
 interface SetGuestFlagsArgs {
   guestId: number;
   flags: PeepFlags[];
+  enabled: boolean;
 }
 
 export function getCurrentSecretCount(name: string): number {
@@ -19,49 +20,48 @@ export function getCurrentSecretCount(name: string): number {
     .length;
 }
 
-function getTotalSecretCount(): number {
-  return map
-    .getAllEntities("guest")
-    .filter((guest) => getAllGuests().some((sg) => sg.name === guest.name))
-    .length;
-}
-
 function getEligibleGuests(): SecretGuest[] {
+  const allSecretGuests = getAllGuests();
   const blacklistedNames = getBlacklistNames();
-  const maxTotal = getSpawnCountTotal();
+  const secretNames = allSecretGuests.map((guest) => guest.name);
 
-  if (getTotalSecretCount() >= maxTotal) {
+  const countsByName: { [name: string]: number } = {};
+  let totalSecretCount = 0;
+
+  for (const guest of map.getAllEntities("guest")) {
+    countsByName[guest.name] = (countsByName[guest.name] ?? 0) + 1;
+
+    if (secretNames.indexOf(guest.name) !== -1) {
+      totalSecretCount++;
+    }
+  }
+
+  if (totalSecretCount >= getSpawnCountTotal()) {
     return [];
   }
 
-  return getAllGuests().filter(
+  return allSecretGuests.filter(
     (guest) =>
       blacklistedNames.indexOf(guest.name) === -1 &&
-      getCurrentSecretCount(guest.name) < getEffectiveSpawnCount(guest),
+      (countsByName[guest.name] ?? 0) < getEffectiveSpawnCount(guest),
   );
 }
 
-function getEffectiveSpawnCount(
-  guest: SecretGuest,
-): number {
+function getEffectiveSpawnCount(guest: SecretGuest): number {
   return guest.enableCustomSpawnSettings === true &&
     guest.customSpawnCount !== undefined
     ? guest.customSpawnCount
     : getSpawnCountPerName();
 }
 
-function getEffectiveSpawnWeight(
-  guest: SecretGuest,
-): number {
+function getEffectiveSpawnWeight(guest: SecretGuest): number {
   return guest.enableCustomSpawnSettings === true &&
     guest.customSpawnWeight !== undefined
     ? guest.customSpawnWeight
     : 1;
 }
 
-function getRandomWeightedGuest(
-  guests: SecretGuest[],
-): SecretGuest | null {
+function getRandomWeightedGuest(guests: SecretGuest[]): SecretGuest | null {
   let totalWeight = 0;
   for (const guest of guests) {
     totalWeight += Math.max(0, getEffectiveSpawnWeight(guest));
@@ -135,7 +135,26 @@ function applyGuestFlags(guestId: number, guest: SecretGuest): void {
   context.executeAction(SET_GUEST_FLAGS_ACTION, {
     guestId,
     flags: guest.flags,
+    enabled: true,
   });
+}
+
+export function applyGuestFlagToExistingGuests(
+  guestName: string,
+  flag: PeepFlags,
+  enabled: boolean,
+): void {
+  const guests = map
+    .getAllEntities("guest")
+    .filter((guest) => guest.name === guestName && guest.id !== null);
+
+  for (const guest of guests) {
+    context.executeAction(SET_GUEST_FLAGS_ACTION, {
+      guestId: guest.id as number,
+      flags: [flag],
+      enabled,
+    });
+  }
 }
 
 export function registerSecretGuestActions(): void {
@@ -152,7 +171,7 @@ export function registerSecretGuestActions(): void {
       const peep = guest as Guest;
 
       for (const flag of event.args.flags) {
-        peep.setFlag(flag, true);
+        peep.setFlag(flag, event.args.enabled);
       }
 
       return {};

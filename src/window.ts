@@ -46,7 +46,7 @@ export function setSelectedGuestDescription(
   const mw = getMainWindow();
 
   if (mw !== null) {
-    updateWidgetProperties(mw, WIDGET_NAMES.label.guestDescription, {
+    updateWidgetProperties(mw, WIDGET_NAMES.label.selectedGuestDescription, {
       text: description,
     });
   }
@@ -88,6 +88,7 @@ export function openSecretGuestsWindow(): void {
 
   let selectedWhitelistIndex = -1;
   let selectedBlacklistIndex = -1;
+  let selectedGuestName: string | null = null;
 
   function setSelectedGuestIndex(
     list: "whitelist" | "blacklist" | null = null,
@@ -140,6 +141,9 @@ export function openSecretGuestsWindow(): void {
       });
     }
 
+    const selectedGuest = getSelectedGuest();
+    selectedGuestName = selectedGuest !== null ? selectedGuest.name : null;
+
     refreshWhitelistNameButtonState();
     refreshBlacklistNameButtonState();
     refreshClearSelectedGuestButtonState();
@@ -147,11 +151,9 @@ export function openSecretGuestsWindow(): void {
     refreshForceSpawnButtonState();
   }
 
-  let blacklist = getBlacklist();
+  // remove?
   function setBlacklist(value?: SecretGuest[]) {
     saveBlacklistNames(value);
-    blacklist = getBlacklist();
-    whitelist = getWhitelist();
   }
 
   function setUseCustomSpawnSettingsForSelectedGuest(
@@ -220,8 +222,6 @@ export function openSecretGuestsWindow(): void {
     refreshGuestCustomSettingsWidgets();
     refreshResetSettingsButtonState();
   }
-
-  let whitelist = getWhitelist();
   // #endregion
 
   // #region Main Window
@@ -296,13 +296,6 @@ export function openSecretGuestsWindow(): void {
     });
   }
 
-  // currently on delete of custom guest and adjusting the settings, the reset button doesn't get disabled
-  // to replicate:
-  // currently, as of July 29 4:33pm, add custom guest, resetSettings gets updated because spawnCountTotal is 25 by default now and spawnCountTotal is still 24 from default settings
-  // scrolling up 1 to 25 causes it to become disabled automatically
-  // when deleting while custom guest is in whitelist, spawnCountTotal set to 24 (with reset settings button active before deleting, as it should be)
-  // then delete, totalGuests is 24 now, have to scroll up to 25 then 24 to disable
-  // when deleting while custom guest is in blacklist, can't update the button at all for some reason. Have to close and reopen
   function refreshResetSettingsButtonState(): void {
     updateWidgetProperties(mainWindow, WIDGET_NAMES.button.resetSettings, {
       isDisabled: areSettingsDefault(),
@@ -319,17 +312,55 @@ export function openSecretGuestsWindow(): void {
 
   function updateListWidgets(): void {
     updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.whitelist, {
-      items: getGuestNames(whitelist),
+      items: getGuestNames(getWhitelist()),
     });
     updateWidgetProperties(mainWindow, WIDGET_NAMES.listview.blacklist, {
-      items: getGuestNames(blacklist),
+      items: getGuestNames(getBlacklist()),
     });
   }
 
   function reloadListsFromStorage(): void {
-    blacklist = getBlacklist();
-    whitelist = getWhitelist();
     updateListWidgets();
+  }
+
+  function refreshSelectionAfterCustomGuestDeleted(
+    deletedGuestName: string,
+  ): void {
+    if (selectedGuestName === null) {
+      return;
+    }
+
+    if (selectedWhitelistIndex !== -1) {
+      if (selectedGuestName === deletedGuestName) {
+        setSelectedGuestIndex(
+          "whitelist",
+          nextSelectIndexForList<SecretGuest>(
+            selectedWhitelistIndex,
+            getWhitelist(),
+          ),
+        );
+      } else {
+        setSelectedGuestIndex(
+          "whitelist",
+          getGuestIndexByName(getWhitelist(), selectedGuestName),
+        );
+      }
+    } else if (selectedBlacklistIndex !== -1) {
+      if (selectedGuestName === deletedGuestName) {
+        setSelectedGuestIndex(
+          "blacklist",
+          nextSelectIndexForList<SecretGuest>(
+            selectedBlacklistIndex,
+            getBlacklist(),
+          ),
+        );
+      } else {
+        setSelectedGuestIndex(
+          "blacklist",
+          getGuestIndexByName(getBlacklist(), selectedGuestName),
+        );
+      }
+    }
   }
 
   /**
@@ -379,12 +410,18 @@ export function openSecretGuestsWindow(): void {
     if (listToReselect === "whitelist") {
       setSelectedGuestIndex(
         "whitelist",
-        nextSelectIndexForList<SecretGuest>(selectedWhitelistIndex, whitelist),
+        nextSelectIndexForList<SecretGuest>(
+          selectedWhitelistIndex,
+          getWhitelist(),
+        ),
       );
     } else {
       setSelectedGuestIndex(
         "blacklist",
-        nextSelectIndexForList<SecretGuest>(selectedBlacklistIndex, blacklist),
+        nextSelectIndexForList<SecretGuest>(
+          selectedBlacklistIndex,
+          getBlacklist(),
+        ),
       );
     }
 
@@ -492,14 +529,24 @@ export function openSecretGuestsWindow(): void {
 
   function getSelectedGuest(): SecretGuest | null {
     if (selectedWhitelistIndex >= 0) {
-      return whitelist[selectedWhitelistIndex] ?? null;
+      return getWhitelist()[selectedWhitelistIndex] ?? null;
     }
 
     if (selectedBlacklistIndex >= 0) {
-      return blacklist[selectedBlacklistIndex] ?? null;
+      return getBlacklist()[selectedBlacklistIndex] ?? null;
     }
 
     return null;
+  }
+
+  function getGuestIndexByName(guests: SecretGuest[], name: string): number {
+    for (let i = 0; i < guests.length; i++) {
+      if (guests[i].name === name) {
+        return i;
+      }
+    }
+
+    return -1;
   }
 
   function getGuestCustomSpawnWeight(guest: SecretGuest): number {
@@ -512,6 +559,7 @@ export function openSecretGuestsWindow(): void {
 
   function areSettingsDefault(): boolean {
     // only need to check blacklist because whitelist is built from that + custom names
+    const blacklist = getBlacklist();
     return (
       blacklist.length === DEFAULT_VALUES.blacklistGuestsNames.length &&
       blacklist.every((guest) =>
@@ -539,7 +587,7 @@ export function openSecretGuestsWindow(): void {
 
   function getWidgets(): WidgetDesc[] {
     return [
-      // add custom guests button
+      // custom guests button
       {
         type: "button",
         name: WIDGET_NAMES.button.openCustomGuestsManager,
@@ -549,9 +597,12 @@ export function openSecretGuestsWindow(): void {
         height: 15,
         text: "Custom Guests",
         tooltip: "Open the Custom Guests Manager",
-        isVisible: false,
         onClick: () => {
-          openCustomGuestsWindow(() => {
+          openCustomGuestsWindow((deletedGuestName) => {
+            if (deletedGuestName !== undefined) {
+              refreshSelectionAfterCustomGuestDeleted(deletedGuestName);
+            }
+
             updateListWidgets();
             refreshUiFromGameState();
           });
@@ -570,7 +621,7 @@ export function openSecretGuestsWindow(): void {
         showColumnHeaders: false,
         canSelect: true,
         columns: [{ header: "Name", width: 195 }],
-        items: getGuestNames(whitelist),
+        items: getGuestNames(getWhitelist()),
         onClick: (index) => {
           setSelectedGuestIndex("whitelist", index);
           refreshUiFromGameState();
@@ -599,7 +650,7 @@ export function openSecretGuestsWindow(): void {
         showColumnHeaders: false,
         canSelect: true,
         columns: [{ header: "Name", width: 195 }],
-        items: getGuestNames(blacklist),
+        items: getGuestNames(getBlacklist()),
         onClick: (index) => {
           setSelectedGuestIndex("blacklist", index);
           refreshUiFromGameState();
@@ -621,7 +672,7 @@ export function openSecretGuestsWindow(): void {
             return;
           }
 
-          setBlacklist(blacklist.concat([selectedGuest]));
+          setBlacklist(getBlacklist().concat([selectedGuest]));
           refreshListsAfterNameMoved("whitelist");
           refreshResetSettingsButtonState();
         },
@@ -643,7 +694,7 @@ export function openSecretGuestsWindow(): void {
           }
 
           setBlacklist(
-            blacklist.filter((guest) => guest.name !== selectedGuest.name),
+            getBlacklist().filter((guest) => guest.name !== selectedGuest.name),
           );
 
           refreshListsAfterNameMoved("blacklist");
@@ -669,7 +720,7 @@ export function openSecretGuestsWindow(): void {
       // guest description label
       {
         type: "label",
-        name: WIDGET_NAMES.label.guestDescription,
+        name: WIDGET_NAMES.label.selectedGuestDescription,
         x: 10,
         y: 215,
         width: 480,

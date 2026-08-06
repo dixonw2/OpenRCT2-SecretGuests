@@ -1,52 +1,128 @@
+import { WIDGET_NAMES, WINDOW_CLASSIFICATIONS } from "./constants";
 import { SECRET_GUESTS, SecretGuest } from "./guests";
 import { getGuestNames } from "./guestLists";
 import { getCustomGuests, saveCustomGuests } from "./storage";
+import { applyGuestFlagToExistingGuests } from "./spawning";
+import {
+  nextSelectIndexForList,
+  updateWidgetProperties,
+} from "./windowUtilities";
 
-const CUSTOM_GUESTS_WINDOW_CLASSIFICATION = "secret-guests-custom-guests";
-const CUSTOM_GUESTS_LIST_WIDGET_NAME = "custom-guests-list";
-const CUSTOM_GUEST_DESCRIPTION_WIDGET_NAME_PREFIX = "custom-guest-description-";
-const CUSTOM_GUEST_NAME_TEXTBOX_WIDGET_NAME = "custom-guest-name";
-const CUSTOM_GUEST_DESCRIPTION_TEXTBOX_WIDGET_NAME =
-  "custom-guest-description-input";
-const CUSTOM_GUEST_ADD_BUTTON_WIDGET_NAME = "custom-guest-add-button";
-const CUSTOM_GUEST_DELETE_BUTTON_WIDGET_NAME = "custom-guest-delete-button";
-
-const DESCRIPTION_LINE_COUNT = 5;
-const DESCRIPTION_LINE_LENGTH = 43;
+const LEFT_COLUMN_X = 10;
+const LEFT_COLUMN_WIDTH = 230;
+const LEFT_BUTTON_WIDTH = 70;
+const LEFT_BUTTON_GAP = 10;
+const LEFT_SECOND_BUTTON_X =
+  LEFT_COLUMN_X + LEFT_BUTTON_WIDTH + LEFT_BUTTON_GAP;
+const LEFT_THIRD_BUTTON_X =
+  LEFT_SECOND_BUTTON_X + LEFT_BUTTON_WIDTH + LEFT_BUTTON_GAP;
+const LEFT_TEXTBOX_WIDTH = 270;
+const FLAG_COLUMN_X = 255;
+const FLAG_COLUMN_GAP = 140;
+const FLAG_WIDTH = 190;
+("clear-custom-guest-selection-button");
 
 interface GuestFlagOption {
   flag: PeepFlags;
   label: string;
+  tooltip: string;
 }
 
 const GUEST_FLAG_OPTIONS: GuestFlagOption[] = [
-  { flag: "leavingPark", label: "Leaves park" },
-  { flag: "slowWalk", label: "Slowly walks" },
-  { flag: "tracking", label: "Track guest's actions" },
-  { flag: "waving", label: "Waves" },
-  //{ flag: "hasPaidForParkEntry", label: "Paid entry" },
-  { flag: "photo", label: "Photographs" },
-  { flag: "painting", label: "Paints" },
-  { flag: "wow", label: "Thinks \u201CWow!\u201D" },
-  { flag: "litter", label: "Litters" },
-  { flag: "lost", label: "Thinks \u201C I'm lost!\u201D" },
-  { flag: "hunger", label: "Hunger increases" },
-  { flag: "toilet", label: "Toilet increases" },
-  { flag: "crowded", label: "Random thoughts" },
-  { flag: "happiness", label: "Happiness decreases" },
-  { flag: "nausea", label: "Nausea increases" },
-  { flag: "purple", label: "Gifts purple shirts" },
-  { flag: "pizza", label: "Gifts pizza" },
-  { flag: "explode", label: "Explodes" },
-  //{ flag: "rideShouldBeMarkedAsFavourite", label: "Favorite ride" },
-  //{ flag: "parkEntranceChosen", label: "Entrance chosen" },
-  { flag: "contagious", label: "Makes nearby guests sick" },
-  { flag: "joy", label: "Jumps" },
-  { flag: "angry", label: "Vandalizes" },
-  { flag: "iceCream", label: "Gifts ice cream" },
-  { flag: "hereWeAre", label: "Thinks \u201CHere we are...\u201D" },
-  //{ flag: "positionFrozen", label: "Position freeze" },
-  //{ flag: "animationFrozen", label: "Animation freeze" },
+  {
+    flag: "leavingPark",
+    label: "Leaves park",
+    tooltip: "Guest will leave the park immediately on entry",
+  },
+  {
+    flag: "slowWalk",
+    label: "Slowly walks",
+    tooltip: "Guest will walk slowly",
+  },
+  {
+    flag: "tracking",
+    label: "Track guest's actions",
+    tooltip: "Will automatically track a guest",
+  },
+  { flag: "waving", label: "Waves", tooltip: "Guest will frequently wave" },
+  {
+    flag: "photo",
+    label: "Photographs",
+    tooltip: "Guest will frequently take photos",
+  },
+  { flag: "painting", label: "Paints", tooltip: "Guest will frequently paint" },
+  {
+    flag: "wow",
+    label: "Thinks \u201CWow!\u201D",
+    tooltip: "Guest will frequently think \u201CWow!\u201D on rides",
+  },
+  { flag: "litter", label: "Litters", tooltip: "Guest will frequently litter" },
+  {
+    flag: "lost",
+    label: "Thinks \u201CI'm lost!\u201D",
+    tooltip: "Guest will frequently think \u201CI'm lost!\u201D",
+  },
+  {
+    flag: "hunger",
+    label: "Hunger increases",
+    tooltip: "Guest's hunger will frequently increase",
+  },
+  {
+    flag: "toilet",
+    label: "Toilet increases",
+    tooltip: "Guest will frequently need to use the restroom",
+  },
+  {
+    flag: "crowded",
+    label: "Random thoughts",
+    tooltip: "Guest will frequently have random thoughts",
+  },
+  {
+    flag: "happiness",
+    label: "Happiness decreases",
+    tooltip: "Guest's happiness will frequently decrease",
+  },
+  {
+    flag: "nausea",
+    label: "Nausea increases",
+    tooltip: "Guest's nausea will frequently increase",
+  },
+  {
+    flag: "purple",
+    label: "Gifts purple shirts",
+    tooltip: "Guest will frequently gift purple shirts",
+  },
+  {
+    flag: "pizza",
+    label: "Gifts pizza",
+    tooltip: "Guest will frequently gift pizza",
+  },
+  {
+    flag: "explode",
+    label: "Explodes",
+    tooltip: "Guest will explode",
+  },
+  {
+    flag: "contagious",
+    label: "Makes nearby guests sick",
+    tooltip: "Guest will make nearby guests sick",
+  },
+  { flag: "joy", label: "Jumps", tooltip: "Guest will frequently jump" },
+  {
+    flag: "angry",
+    label: "Vandalizes",
+    tooltip: "Guest will frequently vandalize",
+  },
+  {
+    flag: "iceCream",
+    label: "Gifts ice cream",
+    tooltip: "Guest will frequently gift ice cream",
+  },
+  {
+    flag: "hereWeAre",
+    label: "Thinks \u201CHere we are...\u201D",
+    tooltip: "Guest will frequently think \u201CHere we are...\u201D on rides",
+  },
 ];
 
 function getFlagWidgetName(flag: PeepFlags): string {
@@ -57,20 +133,10 @@ function hasFlag(flags: PeepFlags[], flag: PeepFlags): boolean {
   return flags.indexOf(flag) !== -1;
 }
 
-function addFlag(flags: PeepFlags[], flag: PeepFlags): PeepFlags[] {
-  if (hasFlag(flags, flag)) {
-    return flags;
-  }
-
-  return flags.concat([flag]);
-}
-
-function removeFlag(flags: PeepFlags[], flag: PeepFlags): PeepFlags[] {
-  return flags.filter((existingFlag) => existingFlag !== flag);
-}
-
 function toggleFlag(flags: PeepFlags[], flag: PeepFlags): PeepFlags[] {
-  return hasFlag(flags, flag) ? removeFlag(flags, flag) : addFlag(flags, flag);
+  return hasFlag(flags, flag)
+    ? flags.filter((existingFlag) => existingFlag !== flag)
+    : flags.concat([flag]);
 }
 
 function isDuplicateGuestName(
@@ -87,213 +153,491 @@ function getTrimmedTextboxText(window: Window, widgetName: string): string {
   return window.findWidget<TextBoxWidget>(widgetName).text.trim();
 }
 
-function wrapText(text: string): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let currentLine = "";
-
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
-    const nextLine = currentLine.length === 0 ? word : `${currentLine} ${word}`;
-
-    if (nextLine.length <= DESCRIPTION_LINE_LENGTH) {
-      currentLine = nextLine;
-    } else {
-      lines.push(currentLine);
-      currentLine = word;
-    }
-
-    if (lines.length === DESCRIPTION_LINE_COUNT) {
-      return lines;
-    }
-  }
-
-  if (currentLine.length > 0) {
-    lines.push(currentLine);
-  }
-
-  return lines;
-}
-
 export function openCustomGuestsWindow(
-  onCustomGuestsChanged: () => void,
+  onCustomGuestsChanged: (deletedGuestName?: string) => void,
 ): void {
-  const windowOpen = ui.getWindow(CUSTOM_GUESTS_WINDOW_CLASSIFICATION);
-  if (windowOpen !== null) {
-    windowOpen.bringToFront();
+  // #region Properties
+  function setCustomGuests(
+    value: SecretGuest[],
+    deletedGuestName?: string,
+  ): void {
+    saveCustomGuests(value);
+    refreshCustomGuestsList();
+    onCustomGuestsChanged(deletedGuestName);
+  }
+
+  let selectedCustomGuestIndex = -1;
+  function setSelectedCustomGuestIndex(value: number = -1): void {
+    selectedCustomGuestIndex = value;
+    refreshCustomGuestsListSelection();
+    refreshEditorState();
+  }
+
+  let newCustomGuestFlags: PeepFlags[] = [];
+  function setNewCustomGuestFlags(value: PeepFlags[] = []): void {
+    newCustomGuestFlags = value;
+    refreshFlagCheckboxes();
+  }
+
+  let isCreatingCustomGuest = false;
+  function setIsCreatingCustomGuest(value: boolean = false): void {
+    isCreatingCustomGuest = value;
+    refreshNewCustomGuestButtonState();
+    refreshEditorState();
+  }
+  // #endregion
+
+  // #region Custom Guests Window
+  const existingWindow = ui.getWindow(
+    WINDOW_CLASSIFICATIONS.customGuestsWindow,
+  );
+  if (existingWindow !== null) {
+    existingWindow.bringToFront();
     return;
   }
 
-  let customGuests = getCustomGuests();
-  let selectedCustomGuestIndex = -1;
-  let newGuestFlags: PeepFlags[] = [];
-
   const customGuestsWindow = ui.openWindow({
-    classification: CUSTOM_GUESTS_WINDOW_CLASSIFICATION,
+    classification: WINDOW_CLASSIFICATIONS.customGuestsWindow,
     title: "Custom Guests Manager",
     width: 600,
     height: 360,
     widgets: getWidgets(),
   });
+  // #endregion
 
-  refreshEditorState();
+  // #region UI Updaters
+  function refreshEditorState(): void {
+    const hasSelection = hasSelectedCustomGuest();
+    const canEditNewGuest = isCreatingCustomGuest && !hasSelection;
+
+    refreshSelectedCustomGuestDescription();
+    refreshFlagCheckboxes();
+    refreshSaveCustomGuestButtonState();
+    refreshDeleteCustomGuestButtonState();
+    refreshClearCustomGuestSelectionButtonState();
+
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.label.customGuestName,
+      {
+        isDisabled: !canEditNewGuest,
+      },
+    );
+
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.textbox.customGuestName,
+      {
+        isDisabled: !canEditNewGuest,
+      },
+    );
+
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.label.customGuestDescription,
+      {
+        isDisabled: !canEditNewGuest,
+      },
+    );
+
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.textbox.customGuestDescription,
+      {
+        isDisabled: !canEditNewGuest,
+      },
+    );
+  }
+
+  function refreshNewCustomGuestButtonState(): void {
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.button.newCustomGuest,
+      {
+        text: isCreatingCustomGuest ? "Cancel" : "New",
+      },
+    );
+  }
+
+  function refreshDeleteCustomGuestButtonState(): void {
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.button.deleteCustomGuest,
+      {
+        isDisabled: !hasSelectedCustomGuest(),
+      },
+    );
+  }
+
+  function refreshClearCustomGuestSelectionButtonState(): void {
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.button.clearSelectedCustomGuest,
+      {
+        isDisabled: !hasSelectedCustomGuest(),
+      },
+    );
+  }
+
+  function refreshSaveCustomGuestButtonState(): void {
+    const name = getTrimmedTextboxText(
+      customGuestsWindow,
+      WIDGET_NAMES.textbox.customGuestName,
+    );
+    const description = getTrimmedTextboxText(
+      customGuestsWindow,
+      WIDGET_NAMES.textbox.customGuestDescription,
+    );
+
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.button.saveCustomGuest,
+      {
+        isDisabled: !canSaveCustomGuest(name, description),
+      },
+    );
+  }
+
+  function refreshCustomGuestsList(): void {
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.listview.customGuests,
+      {
+        items: getGuestNames(getCustomGuests()),
+      },
+    );
+  }
+
+  function refreshCustomGuestsListSelection(): void {
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.listview.customGuests,
+      {
+        selectedCell: hasSelectedCustomGuest()
+          ? {
+              row: selectedCustomGuestIndex,
+              column: 0,
+            }
+          : null,
+      },
+    );
+  }
+
+  function refreshSelectedCustomGuestDescription(): void {
+    const selectedGuest = getSelectedCustomGuest();
+    const description =
+      selectedGuest !== null
+        ? `${selectedGuest.name}: ${selectedGuest.description}`
+        : "";
+
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.label.selectedCustomGuestDescription,
+      {
+        text: description,
+      },
+    );
+  }
+
+  function refreshFlagCheckboxes(): void {
+    const flags = getCurrentFlagSelection();
+
+    for (const option of GUEST_FLAG_OPTIONS) {
+      updateWidgetProperties(
+        customGuestsWindow,
+        getFlagWidgetName(option.flag),
+        {
+          isChecked: hasFlag(flags, option.flag),
+          isDisabled: !hasSelectedCustomGuest() && !isCreatingCustomGuest,
+        },
+      );
+    }
+  }
+  // #endregion
+
+  // #region Helpers
+  function toggleSelectedCustomGuestFlag(flag: PeepFlags): void {
+    const selectedGuest = getSelectedCustomGuest();
+    if (selectedGuest !== null) {
+      const currentFlags = selectedGuest.flags ?? [];
+      const enabled = !hasFlag(currentFlags, flag);
+
+      setCustomGuests(
+        getCustomGuests().map((guest, index) =>
+          index === selectedCustomGuestIndex
+            ? {
+                ...selectedGuest,
+                flags: toggleFlag(currentFlags, flag),
+              }
+            : guest,
+        ),
+      );
+      applyGuestFlagToExistingGuests(selectedGuest.name, flag, enabled);
+      return;
+    }
+
+    setNewCustomGuestFlags(toggleFlag(newCustomGuestFlags, flag));
+  }
+
+  function clearCustomGuestTextboxes(): void {
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.textbox.customGuestName,
+      {
+        text: "",
+      },
+    );
+    updateWidgetProperties(
+      customGuestsWindow,
+      WIDGET_NAMES.textbox.customGuestDescription,
+      {
+        text: "",
+      },
+    );
+  }
+
+  function focusCustomGuestNameTextbox(): void {
+    customGuestsWindow
+      .findWidget<TextBoxWidget>(WIDGET_NAMES.textbox.customGuestName)
+      .focus();
+  }
+
+  function getSelectedCustomGuest(): SecretGuest | null {
+    if (!hasSelectedCustomGuest()) {
+      return null;
+    }
+
+    return getCustomGuests()[selectedCustomGuestIndex];
+  }
+
+  function getCurrentFlagSelection(): PeepFlags[] {
+    const selectedGuest = getSelectedCustomGuest();
+
+    return selectedGuest !== null
+      ? (selectedGuest.flags ?? [])
+      : newCustomGuestFlags;
+  }
+
+  function hasSelectedCustomGuest(): boolean {
+    return (
+      selectedCustomGuestIndex >= 0 &&
+      selectedCustomGuestIndex < getCustomGuests().length
+    );
+  }
+
+  function canSaveCustomGuest(name: string, description: string): boolean {
+    return (
+      !hasSelectedCustomGuest() &&
+      isCreatingCustomGuest &&
+      name.length > 0 &&
+      description.length > 0 &&
+      !isDuplicateGuestName(name, getCustomGuests())
+    );
+  }
+  // #endregion
 
   function getWidgets(): WidgetDesc[] {
     const widgets: WidgetDesc[] = [
+      // custom guests list
       {
         type: "listview",
-        name: CUSTOM_GUESTS_LIST_WIDGET_NAME,
-        x: 10,
+        name: WIDGET_NAMES.listview.customGuests,
+        x: LEFT_COLUMN_X,
         y: 18,
-        width: 230,
-        height: 165,
+        width: LEFT_COLUMN_WIDTH,
+        height: 170,
         scrollbars: "vertical",
         isStriped: true,
         showColumnHeaders: false,
         canSelect: true,
         columns: [{ header: "Name", width: 220 }],
-        items: getGuestNames(customGuests),
+        items: getGuestNames(getCustomGuests()),
         onClick: (index) => {
-          selectedCustomGuestIndex = index;
-          refreshEditorState();
+          setSelectedCustomGuestIndex(index);
+          setIsCreatingCustomGuest();
         },
       },
+      // new custom guest button
       {
         type: "button",
-        x: 305,
-        y: 235,
-        width: 90,
+        name: WIDGET_NAMES.button.newCustomGuest,
+        x: LEFT_COLUMN_X,
+        y: 195,
+        width: LEFT_BUTTON_WIDTH,
         height: 20,
         text: "New",
+        tooltip: "Create a new custom guest",
         onClick: () => {
-          selectedCustomGuestIndex = -1;
-          newGuestFlags = [];
-          clearTextboxes();
-          clearListSelection();
-          refreshEditorState();
-          customGuestsWindow
-            .findWidget<TextBoxWidget>(CUSTOM_GUEST_NAME_TEXTBOX_WIDGET_NAME)
-            .focus();
+          const shouldCreateNewGuest = !isCreatingCustomGuest;
+
+          setSelectedCustomGuestIndex();
+          setNewCustomGuestFlags();
+          clearCustomGuestTextboxes();
+          setIsCreatingCustomGuest(shouldCreateNewGuest);
+
+          if (shouldCreateNewGuest) {
+            focusCustomGuestNameTextbox();
+          }
         },
       },
+      // delete selected custom guest button
       {
         type: "button",
-        name: CUSTOM_GUEST_DELETE_BUTTON_WIDGET_NAME,
-        x: 405,
-        y: 235,
-        width: 90,
+        name: WIDGET_NAMES.button.deleteCustomGuest,
+        x: LEFT_SECOND_BUTTON_X,
+        y: 195,
+        width: LEFT_BUTTON_WIDTH,
         height: 20,
         text: "Delete",
+        tooltip: "Delete selected custom guest",
         isDisabled: true,
         onClick: () => {
-          if (
-            selectedCustomGuestIndex < 0 ||
-            selectedCustomGuestIndex >= customGuests.length
-          ) {
+          if (!hasSelectedCustomGuest()) {
             return;
           }
 
-          customGuests = customGuests.filter(
+          const deletedGuestName =
+            getCustomGuests()[selectedCustomGuestIndex].name;
+          const nextCustomGuests = getCustomGuests().filter(
             (_guest, index) => index !== selectedCustomGuestIndex,
           );
-          selectedCustomGuestIndex = -1;
-          saveAndRefresh();
+
+          selectedCustomGuestIndex = nextSelectIndexForList(
+            selectedCustomGuestIndex,
+            nextCustomGuests,
+          );
+
+          setCustomGuests(nextCustomGuests, deletedGuestName);
+          setSelectedCustomGuestIndex(selectedCustomGuestIndex);
         },
       },
+      // clear selected custom guest button
+      {
+        type: "button",
+        name: WIDGET_NAMES.button.clearSelectedCustomGuest,
+        x: LEFT_THIRD_BUTTON_X,
+        y: 195,
+        width: LEFT_BUTTON_WIDTH,
+        height: 20,
+        text: "Clear",
+        tooltip: "Clear selection",
+        isDisabled: true,
+        onClick: () => {
+          setSelectedCustomGuestIndex();
+          setIsCreatingCustomGuest();
+        },
+      },
+      // selected custom guest description
       {
         type: "label",
-        x: 305,
-        y: 265,
+        name: WIDGET_NAMES.label.selectedCustomGuestDescription,
+        x: LEFT_COLUMN_X,
+        y: 225,
+        width: 580,
+        height: 12,
+        text: "",
+      },
+      // new custom guest name label
+      {
+        type: "label",
+        name: WIDGET_NAMES.label.customGuestName,
+        x: LEFT_COLUMN_X,
+        y: 242,
         width: 60,
         height: 12,
         text: "Name",
+        tooltip: "Name of the new custom guest",
+        isDisabled: true,
       },
+      // new custom guest name textbox
       {
         type: "textbox",
-        name: CUSTOM_GUEST_NAME_TEXTBOX_WIDGET_NAME,
-        x: 305,
-        y: 278,
-        width: 300,
+        name: WIDGET_NAMES.textbox.customGuestName,
+        x: LEFT_COLUMN_X,
+        y: 255,
+        width: LEFT_TEXTBOX_WIDTH,
         height: 14,
-        maxLength: 32,
+        maxLength: 24,
+        tooltip: "Name of the new custom guest",
+        isDisabled: true,
         onChange: () => {
-          updateAddButtonEnabled();
+          refreshSaveCustomGuestButtonState();
         },
       },
+      // new custom guest description label
       {
         type: "label",
-        x: 305,
-        y: 298,
+        name: WIDGET_NAMES.label.customGuestDescription,
+        x: LEFT_COLUMN_X,
+        y: 275,
         width: 100,
         height: 12,
         text: "Description",
+        tooltip: "Description of the new custom guest",
+        isDisabled: true,
       },
+      // new custom guest description textbox
       {
         type: "textbox",
-        name: CUSTOM_GUEST_DESCRIPTION_TEXTBOX_WIDGET_NAME,
-        x: 305,
-        y: 311,
-        width: 300,
+        name: WIDGET_NAMES.textbox.customGuestDescription,
+        x: LEFT_COLUMN_X,
+        y: 288,
+        width: LEFT_TEXTBOX_WIDTH,
         height: 14,
-        maxLength: 80,
+        maxLength: 42,
+        tooltip: "Description of the new custom guest",
+        isDisabled: true,
         onChange: () => {
-          updateAddButtonEnabled();
+          refreshSaveCustomGuestButtonState();
         },
       },
+      // save new custom guest button
       {
         type: "button",
-        name: CUSTOM_GUEST_ADD_BUTTON_WIDGET_NAME,
-        x: 410,
-        y: 333,
+        name: WIDGET_NAMES.button.saveCustomGuest,
+        x: LEFT_COLUMN_X + Math.floor((LEFT_COLUMN_WIDTH - 90) / 2),
+        y: 315,
         width: 90,
         height: 20,
-        text: "Add",
+        text: "Save",
+        tooltip: "Save custom guest",
         isDisabled: true,
         onClick: () => {
           const name = getTrimmedTextboxText(
             customGuestsWindow,
-            CUSTOM_GUEST_NAME_TEXTBOX_WIDGET_NAME,
+            WIDGET_NAMES.textbox.customGuestName,
           );
           const description = getTrimmedTextboxText(
             customGuestsWindow,
-            CUSTOM_GUEST_DESCRIPTION_TEXTBOX_WIDGET_NAME,
+            WIDGET_NAMES.textbox.customGuestDescription,
           );
 
-          if (
-            name.length === 0 ||
-            description.length === 0 ||
-            isDuplicateGuestName(name, customGuests)
-          ) {
-            updateAddButtonEnabled();
+          if (!canSaveCustomGuest(name, description)) {
+            refreshSaveCustomGuestButtonState();
             return;
           }
 
-          customGuests = customGuests.concat([
-            {
-              name,
-              description,
-              flags: newGuestFlags.slice(0),
-            },
-          ]);
-          selectedCustomGuestIndex = customGuests.length - 1;
-          newGuestFlags = [];
-          saveAndRefresh();
+          setCustomGuests(
+            getCustomGuests().concat([
+              {
+                name,
+                description,
+                flags: newCustomGuestFlags.slice(0),
+              },
+            ]),
+          );
+          clearCustomGuestTextboxes();
+          refreshSaveCustomGuestButtonState();
+          setNewCustomGuestFlags();
         },
       },
     ];
 
-    for (let i = 0; i < DESCRIPTION_LINE_COUNT; i++) {
-      widgets.push({
-        type: "label",
-        name: `${CUSTOM_GUEST_DESCRIPTION_WIDGET_NAME_PREFIX}${i}`,
-        x: 10,
-        y: 195 + i * 14,
-        width: 230,
-        height: 12,
-        text: "",
-      });
-    }
+    addFlagWidgets(widgets);
+    return widgets;
+  }
 
+  function addFlagWidgets(widgets: WidgetDesc[]): void {
     for (let i = 0; i < GUEST_FLAG_OPTIONS.length; i++) {
       const option = GUEST_FLAG_OPTIONS[i];
       const column = Math.floor(i / 11);
@@ -302,168 +646,18 @@ export function openCustomGuestsWindow(
       widgets.push({
         type: "checkbox",
         name: getFlagWidgetName(option.flag),
-        x: 260 + column * 145,
+        x: FLAG_COLUMN_X + column * FLAG_COLUMN_GAP,
         y: 18 + row * 17,
-        width: 200,
-        //width: 140,
+        width: FLAG_WIDTH,
         height: 12,
         text: option.label,
+        tooltip: option.tooltip,
         isChecked: false,
+        isDisabled: true,
         onChange: () => {
-          handleFlagChange(option.flag);
+          toggleSelectedCustomGuestFlag(option.flag);
         },
       });
     }
-
-    return widgets;
-  }
-
-  function handleFlagChange(flag: PeepFlags): void {
-    if (
-      selectedCustomGuestIndex >= 0 &&
-      selectedCustomGuestIndex < customGuests.length
-    ) {
-      const selectedGuest = customGuests[selectedCustomGuestIndex];
-      const currentFlags = selectedGuest.flags ?? [];
-      customGuests[selectedCustomGuestIndex] = {
-        name: selectedGuest.name,
-        description: selectedGuest.description,
-        flags: toggleFlag(currentFlags, flag),
-      };
-      saveAndRefresh();
-      return;
-    }
-
-    newGuestFlags = toggleFlag(newGuestFlags, flag);
-    refreshFlagCheckboxes();
-  }
-
-  function saveAndRefresh(): void {
-    saveCustomGuests(customGuests);
-    customGuests = getCustomGuests();
-    refreshList();
-    refreshEditorState();
-    onCustomGuestsChanged();
-  }
-
-  function refreshEditorState(): void {
-    const hasSelection =
-      selectedCustomGuestIndex >= 0 &&
-      selectedCustomGuestIndex < customGuests.length;
-
-    updateDescription();
-    refreshFlagCheckboxes();
-
-    customGuestsWindow.findWidget<ButtonWidget>(
-      CUSTOM_GUEST_DELETE_BUTTON_WIDGET_NAME,
-    ).isDisabled = !hasSelection;
-
-    customGuestsWindow.findWidget<TextBoxWidget>(
-      CUSTOM_GUEST_NAME_TEXTBOX_WIDGET_NAME,
-    ).isDisabled = hasSelection;
-    customGuestsWindow.findWidget<TextBoxWidget>(
-      CUSTOM_GUEST_DESCRIPTION_TEXTBOX_WIDGET_NAME,
-    ).isDisabled = hasSelection;
-
-    updateAddButtonEnabled();
-  }
-
-  function updateAddButtonEnabled(): void {
-    const hasSelection =
-      selectedCustomGuestIndex >= 0 &&
-      selectedCustomGuestIndex < customGuests.length;
-    const name = getTrimmedTextboxText(
-      customGuestsWindow,
-      CUSTOM_GUEST_NAME_TEXTBOX_WIDGET_NAME,
-    );
-    const description = getTrimmedTextboxText(
-      customGuestsWindow,
-      CUSTOM_GUEST_DESCRIPTION_TEXTBOX_WIDGET_NAME,
-    );
-
-    customGuestsWindow.findWidget<ButtonWidget>(
-      CUSTOM_GUEST_ADD_BUTTON_WIDGET_NAME,
-    ).isDisabled =
-      hasSelection ||
-      name.length === 0 ||
-      description.length === 0 ||
-      isDuplicateGuestName(name, customGuests);
-  }
-
-  function refreshList(): void {
-    const list = customGuestsWindow.findWidget<ListViewWidget>(
-      CUSTOM_GUESTS_LIST_WIDGET_NAME,
-    );
-    list.items = getGuestNames(customGuests);
-
-    if (
-      selectedCustomGuestIndex < 0 ||
-      selectedCustomGuestIndex >= customGuests.length
-    ) {
-      list.selectedCell = null;
-      return;
-    }
-
-    list.selectedCell = {
-      row: selectedCustomGuestIndex,
-      column: 0,
-    };
-  }
-
-  function updateDescription(): void {
-    const hasSelection =
-      selectedCustomGuestIndex >= 0 &&
-      selectedCustomGuestIndex < customGuests.length;
-    const lines = hasSelection
-      ? wrapText(
-          `${customGuests[selectedCustomGuestIndex].name}: ${
-            customGuests[selectedCustomGuestIndex].description
-          }`,
-        )
-      : [];
-
-    for (let i = 0; i < DESCRIPTION_LINE_COUNT; i++) {
-      const label = customGuestsWindow.findWidget<LabelWidget>(
-        `${CUSTOM_GUEST_DESCRIPTION_WIDGET_NAME_PREFIX}${i}`,
-      );
-      label.text = lines[i] ?? "";
-    }
-  }
-
-  function refreshFlagCheckboxes(): void {
-    const flags =
-      selectedCustomGuestIndex >= 0 &&
-      selectedCustomGuestIndex < customGuests.length
-        ? (customGuests[selectedCustomGuestIndex].flags ?? [])
-        : newGuestFlags;
-
-    for (let i = 0; i < GUEST_FLAG_OPTIONS.length; i++) {
-      const flag = GUEST_FLAG_OPTIONS[i].flag;
-      const checkbox = customGuestsWindow.findWidget<CheckboxWidget>(
-        getFlagWidgetName(flag),
-      );
-      checkbox.isChecked = hasFlag(flags, flag);
-    }
-  }
-
-  function clearTextboxes(): void {
-    customGuestsWindow.findWidget<TextBoxWidget>(
-      CUSTOM_GUEST_NAME_TEXTBOX_WIDGET_NAME,
-    ).text = "";
-    customGuestsWindow.findWidget<TextBoxWidget>(
-      CUSTOM_GUEST_DESCRIPTION_TEXTBOX_WIDGET_NAME,
-    ).text = "";
-  }
-
-  function clearListSelection(): void {
-    customGuestsWindow.findWidget<ListViewWidget>(
-      CUSTOM_GUESTS_LIST_WIDGET_NAME,
-    ).selectedCell = null;
   }
 }
-
-// # TODODODODODOODODODODODODO
-
-// Seems like some weird issue between deleting a custom guest and the whitelist/blacklist? Seems like right now the guest is added to whichever list is selected, and maybe there's an issue if there isn't one selected?
-// I swear I had two custom guests in the blacklist, I deleted one, and the other one switched to the whitelist. Possibly because one was created without selecting a list?
-// There were some issues with selecting a custom guest and getting a different description for some reason, it seemed. Not sure how to replicate

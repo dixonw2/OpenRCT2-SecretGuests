@@ -2,7 +2,6 @@ import {
   SecretGuest,
   SECRET_GUESTS,
   SecretGuestCustomSpawnSettings,
-  //SecretGuestWithCustomSpawnSettings,
 } from "./guests";
 import {
   getBlacklistNames,

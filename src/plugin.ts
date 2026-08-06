@@ -2,7 +2,7 @@ import { startup } from "./startup";
 
 registerPlugin({
   name: "Secret Guests",
-  version: "1.2.0",
+  version: "1.3.0",
   authors: ["FleetingDream"],
   type: "remote",
   licence: "MIT",

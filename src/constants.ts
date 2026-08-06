@@ -1,6 +1,7 @@
 export const WINDOW_CLASSIFICATIONS = {
   mainMenuWindow: "secret-guests",
   confirmResetSettingsWindow: "secret-guests-reset-settings-confirm",
+  customGuestsWindow: "secret-guests-custom-guests-manager",
 } as const;
 
 export const WIDGET_NAMES = {
@@ -10,7 +11,10 @@ export const WIDGET_NAMES = {
     spawnCountPerName: "spawn-count-per-name-label",
     customSpawnCountForName: "custom-spawn-count-for-name-label",
     spawnCountTotal: "spawn-count-total-label",
-    guestDescription: "guest-description-label",
+    selectedGuestDescription: "selected-guest-description-label",
+    selectedCustomGuestDescription: "selected-custom-guest-description-label",
+    customGuestName: "custom-guest-name-label",
+    customGuestDescription: "custom-guest-description-label",
   },
   spinner: {
     spawnChance: "spawn-chance-spinner",
@@ -25,7 +29,11 @@ export const WIDGET_NAMES = {
     moveToBlacklist: "move-guest-to-blacklist-button",
     moveToWhitelist: "move-guest-to-whitelist-button",
     clearSelectedGuest: "clear-selected-guest-button",
+    clearSelectedCustomGuest: "clear-selected-custom-guest-button",
     openCustomGuestsManager: "open-custom-guests-manager-button",
+    saveCustomGuest: "save-custom-guest-button",
+    deleteCustomGuest: "delete-custom-guest-button",
+    newCustomGuest: "new-custom-guest-button",
   },
   checkbox: {
     notifyOnSpawn: "notify-on-spawn-checkbox",
@@ -34,6 +42,11 @@ export const WIDGET_NAMES = {
   listview: {
     whitelist: "whitelist-listview",
     blacklist: "blacklist-listview",
+    customGuests: "custom-guests-listview",
+  },
+  textbox: {
+    customGuestName: "custom-guest-name-textbox",
+    customGuestDescription: "custom-guest-description-textbox",
   },
 } as const;
 
