@@ -10,6 +10,8 @@ Inspired by Sun-gd00's [SecretCharacterSpawner](https://github.com/Sun-gd00/Open
 <!-- v1.0.0 image -->
 <!--<img width="1085" height="617" alt="secretguests" src="https://github.com/user-attachments/assets/f8e125d0-6130-4f38-954c-595ad2bab9d6" />-->
 
+I now consider this plugin to be feature complete! If you encounter any bugs (or have feature requests) please [create a new issue on GitHub](https://github.com/dixonw2/OpenRCT2-SecretGuests/issues)!
+
 ## Features
 
 - A whitelist/blacklist to prevent specific guests from spawning (for annoying ones, such as Eilidh Bell)
@@ -20,10 +22,7 @@ Inspired by Sun-gd00's [SecretCharacterSpawner](https://github.com/Sun-gd00/Open
 - Secret guests can be configured to have individual spawn weights/spawn caps
   - When a guest is chosen to be renamed, it will then factor in spawn weights so that a higher weight has a higher chance to spawn
   - Individual spawn cap will bypass the overall "Max spawn/name" value
-
-## Planned features
-
-- Add ability to add custom names to spawn with specific actions
+- Can add custom guests with their own actions
 
 ## Installation
 
@@ -36,14 +35,19 @@ Inspired by Sun-gd00's [SecretCharacterSpawner](https://github.com/Sun-gd00/Open
 
 ## Version History
 
-### v.1.2.0 - 2026/08/04
+### v1.3.0 - 2026/08/06
+
+- Can save custom guests with specific actions
+  - Changing a custom guest's actions will update already existing guests with that name
+
+### v1.2.0 - 2026/08/04
 
 - Spawn chance can now be less than 0.1 (0.01 to 0.09) for even more rare guest spawns
 - Guests can be configured to have individual spawn caps/spawn weights
 - Add ability to deselect a guest
   - Not really useful but in case someone wanted it
 
-### v.1.1.0 - 2026/07/27
+### v1.1.0 - 2026/07/27
 
 - Can turn notifications on/off for when a secret guest spawns
 

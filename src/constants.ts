@@ -29,8 +29,9 @@ export const WIDGET_NAMES = {
     moveToBlacklist: "move-guest-to-blacklist-button",
     moveToWhitelist: "move-guest-to-whitelist-button",
     clearSelectedGuest: "clear-selected-guest-button",
+    clearSelectedCustomGuest: "clear-selected-custom-guest-button",
     openCustomGuestsManager: "open-custom-guests-manager-button",
-    addCustomGuest: "add-custom-guest-button",
+    saveCustomGuest: "save-custom-guest-button",
     deleteCustomGuest: "delete-custom-guest-button",
     newCustomGuest: "new-custom-guest-button",
   },
@@ -46,7 +47,7 @@ export const WIDGET_NAMES = {
   textbox: {
     customGuestName: "custom-guest-name-textbox",
     customGuestDescription: "custom-guest-description-textbox",
-  }
+  },
 } as const;
 
 export const STORAGE_KEYS = {

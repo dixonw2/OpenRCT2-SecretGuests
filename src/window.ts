@@ -587,7 +587,7 @@ export function openSecretGuestsWindow(): void {
 
   function getWidgets(): WidgetDesc[] {
     return [
-      // add custom guests button
+      // custom guests button
       {
         type: "button",
         name: WIDGET_NAMES.button.openCustomGuestsManager,

@@ -20,25 +20,30 @@ export function getCurrentSecretCount(name: string): number {
     .length;
 }
 
-function getTotalSecretCount(): number {
-  return map
-    .getAllEntities("guest")
-    .filter((guest) => getAllGuests().some((sg) => sg.name === guest.name))
-    .length;
-}
-
 function getEligibleGuests(): SecretGuest[] {
+  const allSecretGuests = getAllGuests();
   const blacklistedNames = getBlacklistNames();
-  const maxTotal = getSpawnCountTotal();
+  const secretNames = allSecretGuests.map((guest) => guest.name);
 
-  if (getTotalSecretCount() >= maxTotal) {
+  const countsByName: { [name: string]: number } = {};
+  let totalSecretCount = 0;
+
+  for (const guest of map.getAllEntities("guest")) {
+    countsByName[guest.name] = (countsByName[guest.name] ?? 0) + 1;
+
+    if (secretNames.indexOf(guest.name) !== -1) {
+      totalSecretCount++;
+    }
+  }
+
+  if (totalSecretCount >= getSpawnCountTotal()) {
     return [];
   }
 
-  return getAllGuests().filter(
+  return allSecretGuests.filter(
     (guest) =>
       blacklistedNames.indexOf(guest.name) === -1 &&
-      getCurrentSecretCount(guest.name) < getEffectiveSpawnCount(guest),
+      (countsByName[guest.name] ?? 0) < getEffectiveSpawnCount(guest),
   );
 }
 
