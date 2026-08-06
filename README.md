@@ -4,8 +4,13 @@ A configurable plugin for OpenRCT2 to spawn guests with easter egg names.
 
 Inspired by Sun-gd00's [SecretCharacterSpawner](https://github.com/Sun-gd00/OpenRCT2-SecretCharacterSpawner), Built from Basssiiie’s [OpenRCT2 TypeScript plugin template](https://github.com/Basssiiie/OpenRCT2-Simple-Typescript-Template).
 
+<!-- v1.3.0 image -->
+<!-- Original size: 1325x823 -->
+<img width="994" height="617" alt="Secret Guests main window" src="https://github.com/user-attachments/assets/c8fe3142-0d9f-4892-90b3-b133502bd797" />
+
+
 <!-- v1.2.0 image -->
-<img width="1426" height="823" alt="secretguests_v1_2_0" src="https://github.com/user-attachments/assets/f561d994-3dc8-4ea3-abce-6b27f29b7f5c" />
+<!--<img width="1426" height="823" alt="secretguests_v1_2_0" src="https://github.com/user-attachments/assets/f561d994-3dc8-4ea3-abce-6b27f29b7f5c" /> -->
 
 <!-- v1.0.0 image -->
 <!--<img width="1085" height="617" alt="secretguests" src="https://github.com/user-attachments/assets/f8e125d0-6130-4f38-954c-595ad2bab9d6" />-->
@@ -23,6 +28,10 @@ I now consider this plugin to be feature complete! If you encounter any bugs (or
   - When a guest is chosen to be renamed, it will then factor in spawn weights so that a higher weight has a higher chance to spawn
   - Individual spawn cap will bypass the overall "Max spawn/name" value
 - Can add custom guests with their own actions
+
+<!-- Custom Guests Manager v1.3.0 image -->
+<!-- Original size: 1551x912 -->
+<img width="1163" height="684" alt="Custom Guests Manager window" src="https://github.com/user-attachments/assets/a154cb5d-8e53-405c-b440-97baba1d16ac" />
 
 ## Installation
 
